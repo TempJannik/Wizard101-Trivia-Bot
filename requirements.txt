@@ -1,0 +1,10 @@
+click==7.1.2
+joblib==0.14.1
+nltk==3.5
+Pillow==7.0.0
+pytesseract==0.3.2
+regex==2020.4.4
+selenium==3.141.0
+termcolor==1.1.0
+tqdm==4.46.0
+urllib3==1.25.7
