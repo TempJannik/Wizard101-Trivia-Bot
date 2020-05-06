@@ -17,12 +17,13 @@ from PIL import ImageGrab
 from pytesseract import Output
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-version = "1"
+version = "2"
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
     if newestVersion != version:
         print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version")
+        input("Press any keys to continue anyways")
 
 class TriviaBot:
     def __init__(self, username=None, password=None):
@@ -533,6 +534,7 @@ class TriviaBot:
 
 
 if __name__ == '__main__':
+    isVersionOutdated()
     bot = TriviaBot()
     bot.start()
 
