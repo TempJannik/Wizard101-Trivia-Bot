@@ -73,6 +73,11 @@ class TriviaBot:
             self.driver.get(quizUrl)
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
                 #print("Not finished, sleeping...")
+                if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
+                    print("Too many requests, waiting 60 seconds then continuing with a different quiz.")
+                    time.sleep(60)
+                    return
+
                 while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
                     time.sleep(0.01)
                 self.driver.execute_script("""for (let index = 0; index < 4; index++) { document.getElementsByClassName('answer')[index].style.visibility = "visible"; }""")
@@ -121,7 +126,7 @@ class TriviaBot:
                 print("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
             #print("Quiz finished")
         except Exception as e:
-            print("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+e)
+            print("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
 
     def getAnswer(self, category, question):
         if category == "Magical":
@@ -378,9 +383,9 @@ class TriviaBot:
         closestMatches = difflib.get_close_matches(captchaResult, self.wordList)
         if len(closestMatches) > 0:
             captchaResult = closestMatches[0]
+        captchaResult = captchaResult.replace("\n","")
         #print("Captcha Result: "+captchaResult)
-        captchaInput = self.driver.find_element_by_id("captcha")
-        captchaInput.send_keys(captchaResult)
+        self.driver.execute_script("document.getElementById(\"captcha\").value = arguments[0]", captchaResult)
         submitBtns = self.driver.find_elements_by_xpath(submitXPath)
         for btn in submitBtns:
             if btn.is_enabled() and btn.is_displayed():
@@ -412,8 +417,7 @@ class TriviaBot:
             if len(closestMatches) > 0:
                 captchaResult = closestMatches[0]
             #print("Captcha Result: "+captchaResult)
-            captchaInput = self.driver.find_element_by_id("captcha")
-            captchaInput.send_keys(captchaResult)
+            self.driver.execute_script("document.getElementById(\"captcha\").value = arguments[0]", captchaResult)
             submitBtns = self.driver.find_elements_by_xpath(submitXPath)
             for btn in submitBtns:
                 if btn.is_enabled() and btn.is_displayed():
