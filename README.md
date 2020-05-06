@@ -10,6 +10,7 @@ To use this you have 2 choices, with or without Python. Using python is better f
 - [Usage without Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#usage-without-python)
 - [Installation with Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#installation-with-python)
 - [Usage with Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#installation-with-python)
+- [Credits](https://github.com/TempJannik/Wizard101-Trivia-Bot#credits)
 
 ## Installation without Python
 1. Download the release.rar from the [Releases section](https://github.com/TempJannik/Wizard101-Trivia-Bot/releases) and unpack in into a new folder.
