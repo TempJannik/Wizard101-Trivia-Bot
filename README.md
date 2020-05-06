@@ -1,5 +1,10 @@
 # Wizard101-Trivia-Bot
 
+## Bugs
+I'm trying to find all bugs or situations the bot gets stuck in. So if you encounter any of these issues feel free to let me know.
+Current known bugs:
+- Login Captcha gets stuck: These rarely come so I havent been able to reproduce, currently you'll have to manually enter it.
+
 ## Introduction
 I've seen implementations of these type of bots but I've seen none that allow account switching as well which is why I made this Bot.
 This will allow you to supply your accounts and have them automatically go through the needed quizzes.
