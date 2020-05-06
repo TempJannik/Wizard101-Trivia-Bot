@@ -17,7 +17,7 @@ from PIL import ImageGrab
 from pytesseract import Output
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-version = "2"
+version = "3"
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -48,7 +48,7 @@ class TriviaBot:
             self.login(account[0], account[1])
             self.activeAccount = account[0]
             self.activeAccountCrowns = 0
-            print("Finished login for " +account[0])
+            #print("Finished login for " +account[0])
             self.driver.switch_to.default_content()
             self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
             #print("Switching Quiz")
@@ -97,7 +97,7 @@ class TriviaBot:
                 while question == "":
                     #print("Looking for question")
                     question = self.driver.find_element_by_class_name("quizQuestion").text
-                #print("Found question: "+question)
+               # print("Found question: "+question)
                 correctAnswer = self.getAnswer(quizName, question)
                 #print("Found answer: "+correctAnswer)
                 if correctAnswer == "Invalid":
@@ -396,7 +396,9 @@ class TriviaBot:
         if len(closestMatches) > 0:
             captchaResult = closestMatches[0]
         captchaResult = captchaResult.replace("\n","")
-        #print("Captcha Result: "+captchaResult)
+        if captchaResult == "":
+                self.driver.find_element_by_id("captchaImage").click()
+       # print("Captcha Result: "+captchaResult)
         self.driver.execute_script("document.getElementById(\"captcha\").value = arguments[0]", captchaResult)
         submitBtns = self.driver.find_elements_by_xpath(submitXPath)
         for btn in submitBtns:
@@ -428,6 +430,9 @@ class TriviaBot:
             closestMatches = difflib.get_close_matches(captchaResult, self.wordList)
             if len(closestMatches) > 0:
                 captchaResult = closestMatches[0]
+            captchaResult = captchaResult.replace("\n","")
+            if captchaResult == "":
+                self.driver.find_element_by_id("captchaImage").click()
             #print("Captcha Result: "+captchaResult)
             self.driver.execute_script("document.getElementById(\"captcha\").value = arguments[0]", captchaResult)
             submitBtns = self.driver.find_elements_by_xpath(submitXPath)
