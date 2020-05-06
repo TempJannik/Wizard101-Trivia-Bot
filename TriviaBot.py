@@ -8,6 +8,7 @@ import sys
 import math
 import difflib
 import pytesseract as tess
+from urllib.request import urlopen
 from utility_methods.utility_methods import *
 from selenium import webdriver
 from functools import reduce
@@ -15,6 +16,13 @@ from PIL import Image
 from PIL import ImageGrab
 from pytesseract import Output
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+version = "1"
+
+def isVersionOutdated():
+    newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
+    if newestVersion != version:
+        print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version")
 
 class TriviaBot:
     def __init__(self, username=None, password=None):
@@ -76,6 +84,9 @@ class TriviaBot:
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
                     print("Too many requests, waiting 60 seconds then continuing with a different quiz.")
                     time.sleep(60)
+                    return
+                if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
+                    print("Quiz throttled, skipping quiz.")
                     return
 
                 while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
