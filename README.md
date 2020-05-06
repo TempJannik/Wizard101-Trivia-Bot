@@ -6,6 +6,11 @@ This will allow you to supply your accounts and have them automatically go throu
 
 To use this you have 2 choices, with or without Python. Using python is better for more technically experienced people and others who want to know whats being run on their PC. For everyone else I supplied a release in the form of a .exe file.
 
+- [Installation without Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#installation-without-python)
+- [Usage without Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#usage-without-python)
+- [Installation with Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#installation-with-python)
+- [Usage with Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#installation-with-python)
+
 ## Installation without Python
 1. Download the release.rar from the [Releases section](https://github.com/TempJannik/Wizard101-Trivia-Bot/releases) and unpack in into a new folder.
 2. Tesseract 5 - **Make sure to install it under C:\Program Files\Tesseract-OCR** https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-v5.0.0-alpha.20200328.exe
