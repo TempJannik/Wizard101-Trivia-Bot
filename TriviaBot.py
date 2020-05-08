@@ -17,13 +17,13 @@ from PIL import ImageGrab
 from pytesseract import Output
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-version = "3"
+version = "4"
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
     if newestVersion != version:
         print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version")
-        input("Press any keys to continue anyways")
+        input("Press any keys to continue with the old version...")
 
 class TriviaBot:
     def __init__(self, username=None, password=None):
@@ -46,10 +46,16 @@ class TriviaBot:
         for account in self.accounts:
             print("Starting login for " +account[0])
             self.login(account[0], account[1])
+            self.driver.switch_to.default_content()
+            while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
+                print("Login failed, retrying...")
+                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+                self.login(account[0], account[1])
+                time.sleep(2)
             self.activeAccount = account[0]
             self.activeAccountCrowns = 0
             #print("Finished login for " +account[0])
-            self.driver.switch_to.default_content()
+            
             self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
             #print("Switching Quiz")
             self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
@@ -71,10 +77,8 @@ class TriviaBot:
             self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
             print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
             self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
-            self.driver.execute_script("window.open('');")
-            self.driver.close()
-            self.driver.switch_to.window(self.driver.window_handles[0])
         print("\n\nSummary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(len(self.accounts)) + " accounts.")
+        self.driver.quit()
 
     def doQuiz(self, quizName, quizUrl):
         #print("Starting Quiz: "+quizName)
@@ -448,6 +452,7 @@ class TriviaBot:
         login_btn.click()
         iframe = self.driver.find_element_by_xpath("//iframe")
         self.driver.switch_to.frame(iframe)
+        time.sleep(1)
         username_input = self.driver.find_element_by_class_name('userNameField')
         password_input = self.driver.find_element_by_class_name('passwordField')
 
