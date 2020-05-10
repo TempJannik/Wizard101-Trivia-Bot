@@ -19,7 +19,7 @@ tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 import os
 from selenium.webdriver.chrome.options import Options
 
-version = "5"
+version = "6"
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -469,13 +469,15 @@ class TriviaBot:
 
     def login(self, username, password):
         self.driver.get(self.login_url)
-        time.sleep(2)
+        time.sleep(1.5)
         login_btn = self.driver.find_element_by_xpath("//*[contains(text(), 'Login / SignUp')]")
         login_btn.click()
         iframe = self.driver.find_elements_by_xpath("//iframe")
         while len(iframe) == 0:
             iframe = self.driver.find_elements_by_xpath("//iframe")
         self.driver.switch_to.frame(iframe[0])
+        time.sleep(1.5)
+
         username_input = self.driver.find_element_by_class_name('userNameField')
         password_input = self.driver.find_element_by_class_name('passwordField')
 
@@ -568,7 +570,7 @@ class TriviaBot:
 
 if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
-    print("If you encounter any issues and are on the newest version feel free to contact me via Discord: ToxOver#9831")
+    print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
     isVersionOutdated()
     bot = TriviaBot()
     bot.start()
