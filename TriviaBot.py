@@ -16,8 +16,10 @@ from PIL import Image
 from PIL import ImageGrab
 from pytesseract import Output
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+import os
+from selenium.webdriver.chrome.options import Options
 
-version = "4"
+version = "5"
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -28,55 +30,70 @@ def isVersionOutdated():
 class TriviaBot:
     def __init__(self, username=None, password=None):
         self.login_url = "https://www.freekigames.com/trivia"
-        self.driver = webdriver.Chrome("chromedriver.exe")
+        chrome_options = Options()
+        chrome_options.add_argument('--log-level=3')
+        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        path = os.path.dirname(os.path.realpath(__file__))
+        self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
         self.wordList = []
         self.earnedCrowns = 0
         self.activeAccount = ""
-        with open("wordlist.txt") as f:
+        with open(path+"/wordlist.txt") as f:
             for line in f:
                 self.wordList.append(line)
                 self.wordList.append(line + "s")
         self.accounts = []
-        with open("accounts.txt") as f:
+        with open(path+"/accounts.txt") as f:
             for line in f:
                 data = line.split(':')
                 self.accounts.append((data[0], data[1]))
 
     def start(self):
         for account in self.accounts:
-            print("Starting login for " +account[0])
-            self.login(account[0], account[1])
-            self.driver.switch_to.default_content()
-            while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
-                print("Login failed, retrying...")
-                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+            try:
+                print("Starting login for " +account[0])
                 self.login(account[0], account[1])
-                time.sleep(2)
-            self.activeAccount = account[0]
-            self.activeAccountCrowns = 0
-            #print("Finished login for " +account[0])
-            
-            self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Conjuring", "https://www.freekigames.com/wizard101-conjuring-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Marleybone", "https://www.freekigames.com/wizard101-marleybone-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Mystical", "https://www.freekigames.com/wizard101-mystical-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Spellbinding", "https://www.freekigames.com/wizard101-spellbinding-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Spells", "https://www.freekigames.com/wizard101-spells-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
-            #print("Switching Quiz")
-            self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
-            print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
-            self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+                self.driver.switch_to.default_content()
+                while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
+                    print("Login failed, retrying...")
+                    self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+                    self.login(account[0], account[1])
+                    time.sleep(2)
+                self.activeAccount = account[0]
+                self.activeAccountCrowns = 0
+                #print("Finished login for " +account[0])
+                
+                self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Conjuring", "https://www.freekigames.com/wizard101-conjuring-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Marleybone", "https://www.freekigames.com/wizard101-marleybone-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Mystical", "https://www.freekigames.com/wizard101-mystical-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Spellbinding", "https://www.freekigames.com/wizard101-spellbinding-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Spells", "https://www.freekigames.com/wizard101-spells-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
+                #print("Switching Quiz")
+                self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
+                print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+            except Exception as e:
+                print("An error occured while doing Trivia for "+account[0]+", this account will be skipped. If you want to do trivia on this account please restart the bot after completion.")
+                print("Following Exception occured while trying to process an account:\n"+str(e))
+                self.driver.quit()
+                chrome_options = Options()
+                chrome_options.add_argument('--log-level=3')
+                chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+                path = os.path.dirname(os.path.realpath(__file__))
+                self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
+
         print("\n\nSummary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(len(self.accounts)) + " accounts.")
         self.driver.quit()
 
@@ -381,6 +398,8 @@ class TriviaBot:
             return switcher.get(question, "Invalid")
 
     def solveCaptcha(self, submitXPath): # submitXPath = the XPath of the element needed to submit the captcha
+        retryLimit = 20
+        currentTry = 0
         img_base64 = self.driver.execute_script("""
         var ele = arguments[0];
         var cnv = document.createElement('canvas');
@@ -411,6 +430,9 @@ class TriviaBot:
                 break
         #print("Submitted Captcha")
         while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'You must correct')]")) > 0: # Failed captcha
+            currentTry = currentTry + 1
+            if currentTry >= retryLimit: #To Prevent getting stuck for whatever reason, add a retry limit, if the captcha isnt solved the following code should have it
+                return
             self.driver.find_element_by_id("captcha").clear()
             #self.driver.find_element_by_id("captchaImage").click()
             time.sleep(1)
@@ -450,9 +472,10 @@ class TriviaBot:
         time.sleep(2)
         login_btn = self.driver.find_element_by_xpath("//*[contains(text(), 'Login / SignUp')]")
         login_btn.click()
-        iframe = self.driver.find_element_by_xpath("//iframe")
-        self.driver.switch_to.frame(iframe)
-        time.sleep(1)
+        iframe = self.driver.find_elements_by_xpath("//iframe")
+        while len(iframe) == 0:
+            iframe = self.driver.find_elements_by_xpath("//iframe")
+        self.driver.switch_to.frame(iframe[0])
         username_input = self.driver.find_element_by_class_name('userNameField')
         password_input = self.driver.find_element_by_class_name('passwordField')
 
@@ -544,6 +567,8 @@ class TriviaBot:
 
 
 if __name__ == '__main__':
+    print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
+    print("If you encounter any issues and are on the newest version feel free to contact me via Discord: ToxOver#9831")
     isVersionOutdated()
     bot = TriviaBot()
     bot.start()
