@@ -18,8 +18,11 @@ from pytesseract import Output
 tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 import os
 from selenium.webdriver.chrome.options import Options
+import threading
 
-version = "6"
+
+version = "7"
+totalCrownsEarned = 0
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -28,7 +31,7 @@ def isVersionOutdated():
         input("Press any keys to continue with the old version...")
 
 class TriviaBot:
-    def __init__(self, username=None, password=None):
+    def __init__(self, accounts):
         self.login_url = "https://www.freekigames.com/trivia"
         chrome_options = Options()
         chrome_options.add_argument('--log-level=3')
@@ -42,11 +45,7 @@ class TriviaBot:
             for line in f:
                 self.wordList.append(line)
                 self.wordList.append(line + "s")
-        self.accounts = []
-        with open(path+"/accounts.txt") as f:
-            for line in f:
-                data = line.split(':')
-                self.accounts.append((data[0], data[1]))
+        self.accounts = accounts
 
     def start(self):
         for account in self.accounts:
@@ -94,11 +93,11 @@ class TriviaBot:
                 path = os.path.dirname(os.path.realpath(__file__))
                 self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
 
-        print("\n\nSummary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(len(self.accounts)) + " accounts.")
+        print("\n\nThread Summary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(len(self.accounts)) + " accounts.")
         self.driver.quit()
 
     def doQuiz(self, quizName, quizUrl):
-        #print("Starting Quiz: "+quizName)
+        global totalCrownsEarned
         try:
             self.driver.get(quizUrl)
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
@@ -156,6 +155,7 @@ class TriviaBot:
             if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Transferrable Crowns')]")) != 0:
                 self.earnedCrowns += 10
                 self.activeAccountCrowns += 10
+                totalCrownsEarned += 10
                 print("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
             #print("Quiz finished")
         except Exception as e:
@@ -568,10 +568,37 @@ class TriviaBot:
             self.removeYellowLine(origImage, img)
 
 
+def split(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
 if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
     print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
+    print("To change the amount of parallel answering of Trivias change the number in threads.txt. Default: 1")
     isVersionOutdated()
-    bot = TriviaBot()
-    bot.start()
+
+    path = os.path.dirname(os.path.realpath(__file__))
+    with open(path+'/threads.txt', 'r') as threadFile:
+        chunksAmount = int(threadFile.read())
+    accounts = []
+    path = os.path.dirname(os.path.realpath(__file__))
+    with open(path+"/accounts.txt") as f:
+        for line in f:
+            data = line.split(':')
+            accounts.append((data[0], data[1]))
+    accountChunks = split(accounts, chunksAmount)
+    threads = []
+    for chunk in accountChunks:
+        bot = TriviaBot(chunk)
+        t = threading.Thread(target=bot.start)
+        threads.append(t)
+    for x in threads:
+        x.start()
+    for x in threads:
+        x.join()
+
+    print("\n\nSummary\nEarned " + str(totalCrownsEarned)+" crowns on " + str(len(accounts)) + " accounts.")
+
+    
 
