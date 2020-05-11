@@ -1,3 +1,8 @@
+headed
+beware
+thumbs
+sunbird
+anyway
 mchead
 pushed
 firecat
@@ -10667,14 +10672,6 @@ tamp
 tampax
 tampion
 tampon
-tandoor
-tangram
-tankard
-tannery
-tannoy
-tap
-tappet
-tarpaulin
 tartan
 tassel
 tasset
@@ -10683,7 +10680,6 @@ tavern
 tawse
 taximeter
 taxiway
-teakettle
 teapot
 teashop
 technical
@@ -18385,12 +18381,7 @@ whiting
 cusk
 dolphinfish
 carp
-buffalofish
-muskellunge
 pickerel
-monkfish
-catfish
-sunfish
 crappie
 albacore
 bonito

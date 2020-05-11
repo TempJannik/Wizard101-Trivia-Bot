@@ -21,7 +21,7 @@ from selenium.webdriver.chrome.options import Options
 import threading
 
 
-version = "7"
+version = "8"
 totalCrownsEarned = 0
 
 def isVersionOutdated():
@@ -103,8 +103,9 @@ class TriviaBot:
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
                 #print("Not finished, sleeping...")
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-                    print("Too many requests, waiting 60 seconds then continuing with a different quiz.")
-                    time.sleep(60)
+                    print("Too many requests, waiting 45 seconds for a retry.")
+                    time.sleep(45)
+                    self.doQuiz(quizName, quizUrl)
                     return
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
                     print("Quiz throttled, skipping quiz.")
@@ -470,6 +471,11 @@ class TriviaBot:
     def login(self, username, password):
         self.driver.get(self.login_url)
         time.sleep(1.5)
+        if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
+            print("Too many requests, waiting 45 seconds for a retry.")
+            time.sleep(45)
+            self.login(username, password)
+            return
         login_btn = self.driver.find_element_by_xpath("//*[contains(text(), 'Login / SignUp')]")
         login_btn.click()
         iframe = self.driver.find_elements_by_xpath("//iframe")
