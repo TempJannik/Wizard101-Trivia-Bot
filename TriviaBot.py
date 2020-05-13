@@ -21,8 +21,10 @@ from selenium.webdriver.chrome.options import Options
 import threading
 
 
-version = "8"
+version = "9"
 totalCrownsEarned = 0
+headless = False
+wordList = []
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -32,22 +34,27 @@ def isVersionOutdated():
 
 class TriviaBot:
     def __init__(self, accounts):
+        global headless
         self.login_url = "https://www.freekigames.com/trivia"
         chrome_options = Options()
-        chrome_options.add_argument('--log-level=3')
+        if headless:
+            chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--log-level=3")
+        chrome_options.add_argument("--enable-automation")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-infobars")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-browser-side-navigation")
+        chrome_options.add_argument("--disable-gpu")
         chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         path = os.path.dirname(os.path.realpath(__file__))
         self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
-        self.wordList = []
         self.earnedCrowns = 0
         self.activeAccount = ""
-        with open(path+"/wordlist.txt") as f:
-            for line in f:
-                self.wordList.append(line)
-                self.wordList.append(line + "s")
         self.accounts = accounts
 
     def start(self):
+        global headless
         for account in self.accounts:
             try:
                 print("Starting login for " +account[0])
@@ -88,7 +95,15 @@ class TriviaBot:
                 print("Following Exception occured while trying to process an account:\n"+str(e))
                 self.driver.quit()
                 chrome_options = Options()
-                chrome_options.add_argument('--log-level=3')
+                if headless:
+                    chrome_options.add_argument("--headless")
+                chrome_options.add_argument("--log-level=3")
+                chrome_options.add_argument("--enable-automation")
+                chrome_options.add_argument("--no-sandbox")
+                chrome_options.add_argument("--disable-infobars")
+                chrome_options.add_argument("--disable-dev-shm-usage")
+                chrome_options.add_argument("--disable-browser-side-navigation")
+                chrome_options.add_argument("--disable-gpu")
                 chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
                 path = os.path.dirname(os.path.realpath(__file__))
                 self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
@@ -399,6 +414,7 @@ class TriviaBot:
             return switcher.get(question, "Invalid")
 
     def solveCaptcha(self, submitXPath): # submitXPath = the XPath of the element needed to submit the captcha
+        global wordList
         retryLimit = 20
         currentTry = 0
         img_base64 = self.driver.execute_script("""
@@ -416,7 +432,7 @@ class TriviaBot:
         self.removeYellowLine(origImg, img)
         captchaResult = tess.image_to_string(origImg, lang="eng", config="-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").lower()
         captchaResult = captchaResult.replace(" ","")
-        closestMatches = difflib.get_close_matches(captchaResult, self.wordList)
+        closestMatches = difflib.get_close_matches(captchaResult, wordList)
         if len(closestMatches) > 0:
             captchaResult = closestMatches[0]
         captchaResult = captchaResult.replace("\n","")
@@ -454,7 +470,7 @@ class TriviaBot:
             #print("Tesseracting...")
             captchaResult = tess.image_to_string(origImg, lang="eng", config="-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").lower()
             captchaResult = captchaResult.replace(" ","")
-            closestMatches = difflib.get_close_matches(captchaResult, self.wordList)
+            closestMatches = difflib.get_close_matches(captchaResult, wordList)
             if len(closestMatches) > 0:
                 captchaResult = closestMatches[0]
             captchaResult = captchaResult.replace("\n","")
@@ -582,11 +598,19 @@ if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
     print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
     print("To change the amount of parallel answering of Trivias change the number in threads.txt. Default: 1")
+    print("To run the bot in headless mode (Chrome will be invisible in background) change the number in headless.txt from 0 to 1")
     isVersionOutdated()
 
     path = os.path.dirname(os.path.realpath(__file__))
+    with open(path+"/wordlist.txt") as f:
+        for line in f:
+            wordList.append(line)
+            wordList.append(line + "s")
     with open(path+'/threads.txt', 'r') as threadFile:
         chunksAmount = int(threadFile.read())
+    with open(path+'/headless.txt', 'r') as headlessFile:
+        if int(headlessFile.read()) == 1:
+            headless = True
     accounts = []
     path = os.path.dirname(os.path.realpath(__file__))
     with open(path+"/accounts.txt") as f:
@@ -605,6 +629,7 @@ if __name__ == '__main__':
         x.join()
 
     print("\n\nSummary\nEarned " + str(totalCrownsEarned)+" crowns on " + str(len(accounts)) + " accounts.")
+    input()
 
     
 
