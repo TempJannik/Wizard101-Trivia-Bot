@@ -12,6 +12,13 @@ To use this you have 2 choices, with or without Python. Using python is better f
 - [Usage with Python](https://github.com/TempJannik/Wizard101-Trivia-Bot#installation-with-python)
 - [Credits](https://github.com/TempJannik/Wizard101-Trivia-Bot#credits)
 
+## Features
+- Solve Trivia
+- Solve Captcha
+- Switch/Log in to Accounts
+- Solve Trivias on multiple accounts at the same time
+- Run "invisible" in background
+
 ## Installation without Python
 1. Download the release.rar from the [Releases section](https://github.com/TempJannik/Wizard101-Trivia-Bot/releases) and unpack in into a new folder.
 2. Tesseract 5 - **Make sure to install it under C:\Program Files\Tesseract-OCR** https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-v5.0.0-alpha.20200328.exe
