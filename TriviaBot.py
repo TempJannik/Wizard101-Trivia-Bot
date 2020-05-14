@@ -55,44 +55,46 @@ class TriviaBot:
 
     def start(self):
         global headless
-        for account in self.accounts:
+        def processAccount(account, numAttempts = 1):
+            global headless
             try:
-                print("Starting login for " +account[0])
+                print("Starting login for " + account[0])
                 self.login(account[0], account[1])
                 self.driver.switch_to.default_content()
                 while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
                     print("Login failed, retrying...")
-                    self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+                    self.driver.get(
+                        "https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
                     self.login(account[0], account[1])
                     time.sleep(2)
                 self.activeAccount = account[0]
                 self.activeAccountCrowns = 0
-                #print("Finished login for " +account[0])
-                
+                # print("Finished login for " +account[0])
+
                 self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Conjuring", "https://www.freekigames.com/wizard101-conjuring-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Marleybone", "https://www.freekigames.com/wizard101-marleybone-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Mystical", "https://www.freekigames.com/wizard101-mystical-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Spellbinding", "https://www.freekigames.com/wizard101-spellbinding-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Spells", "https://www.freekigames.com/wizard101-spells-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
-                #print("Switching Quiz")
+                # print("Switching Quiz")
                 self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
-                print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
-                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+                print(
+                    "Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+                self.driver.get(
+                    "https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
             except Exception as e:
-                print("An error occured while doing Trivia for "+account[0]+", this account will be skipped. If you want to do trivia on this account please restart the bot after completion.")
-                print("Following Exception occured while trying to process an account:\n"+str(e))
                 self.driver.quit()
                 chrome_options = Options()
                 if headless:
@@ -106,20 +108,30 @@ class TriviaBot:
                 chrome_options.add_argument("--disable-gpu")
                 chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
                 path = os.path.dirname(os.path.realpath(__file__))
-                self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
+                self.driver = webdriver.Chrome(path + "/chromedriver.exe", options=chrome_options)
+                if numAttempts == 3:
+                    print("An error occured while doing Trivia for " + account[
+                        0] + ", this account will be skipped. If you want to do trivia on this account please restart the bot after completion.")
+                    print("Following Exception occured while trying to process an account:\n" + str(e))
+                    return
+
+                processAccount(account, numAttempts = numAttempts + 1)
+        for account in self.accounts:
+            processAccount(account)
 
         print("\n\nThread Summary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(len(self.accounts)) + " accounts.")
         self.driver.quit()
 
     def doQuiz(self, quizName, quizUrl, numAttempts = 1):
         global totalCrownsEarned
+        global waitTime
         try:
             self.driver.get(quizUrl)
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
                 #print("Not finished, sleeping...")
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-                    print("Too many requests, waiting 45 seconds for a retry.")
-                    time.sleep(45)
+                    print("Too many requests, waiting %i seconds for a retry." % waitTime)
+                    time.sleep(waitTime)
                     self.doQuiz(quizName, quizUrl)
                     return
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
@@ -128,7 +140,12 @@ class TriviaBot:
 
                 while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
                     time.sleep(0.01)
-                self.driver.execute_script("""for (let index = 0; index < 4; index++) { document.getElementsByClassName('answer')[index].style.visibility = "visible"; }""")
+                self.driver.execute_script("""
+                    for (let index = 0; index < 4; index++) { 
+                        document.getElementsByClassName('answer')[index].style.visibility = "visible"; 
+                    }
+                    """
+                    )
                 question = ""
                 while question == "":
                     #print("Looking for question")
@@ -612,8 +629,10 @@ if __name__ == '__main__':
             wordList.append(line)
             wordList.append(line + "s")
 
+    #defaults
     headless = True
     chunksAmount = 2
+    waitTime = 45
     with open(path+'/options.txt', 'r') as threadFile:
         COULDNT_READ = -1
         def extractValue(rawText):
@@ -638,9 +657,14 @@ if __name__ == '__main__':
             global chunksAmount
             chunksAmount = value
 
+        def setWaitTime(value, line):
+            global waitTime
+            waitTime = value
+
         optionSwitcher = {
             "headless": setHeadless,
-            "threads": setThreadCount
+            "threads": setThreadCount,
+            "wait": setWaitTime
         }
 
         for line in threadFile:

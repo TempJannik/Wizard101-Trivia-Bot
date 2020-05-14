@@ -1,2 +1,3 @@
-headless:   1
-threads:   4 
+headless: 1
+threads: 3
+wait: 20
