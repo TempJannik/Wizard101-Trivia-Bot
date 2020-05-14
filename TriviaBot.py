@@ -414,7 +414,7 @@ def split(a, n):
 if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
     print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
-    print("To change the amount of parallel answering of Trivias, write threads: ThreadNumberHere in the options.txt")
+    print("To change the amount of parallel answering of Trivias, write threads: NumHere in the options.txt")
     print("To make chrome invisible, write headless: 1 or headless:0 for visibility")
     isVersionOutdated()
 
@@ -427,7 +427,7 @@ if __name__ == '__main__':
     #defaults
     headless = True
     chunksAmount = 2
-    waitTime = 45
+    waitTime = 20
     with open(path+'/options.txt', 'r') as threadFile:
         COULDNT_READ = -1
         def extractValue(rawText):
