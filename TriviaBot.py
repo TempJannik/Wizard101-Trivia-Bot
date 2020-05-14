@@ -611,11 +611,56 @@ if __name__ == '__main__':
         for line in f:
             wordList.append(line)
             wordList.append(line + "s")
-    with open(path+'/threads.txt', 'r') as threadFile:
-        chunksAmount = int(threadFile.read())
-    with open(path+'/headless.txt', 'r') as headlessFile:
-        if int(headlessFile.read()) == 1:
-            headless = True
+
+    headless = True
+    chunksAmount = 2
+    with open(path+'/options.txt', 'r') as threadFile:
+        COULDNT_READ = -1
+        def extractValue(rawText):
+            valueText = ""
+            for char in rawText:
+                try:
+                    valueText += str(int(char))
+                except Exception:
+                    pass
+            if valueText == "":
+                return COULDNT_READ
+            return int(valueText)
+
+        def setHeadless(value, line):
+            global headless
+            if value == 0 or value == 1:
+                headless = value == 1
+            else:
+                print("Couldnt read line:\n%s" % line)
+
+        def setThreadCount(value, line):
+            global chunksAmount
+            chunksAmount = value
+
+        optionSwitcher = {
+            "headless": setHeadless,
+            "threads": setThreadCount
+        }
+
+        for line in threadFile:
+            temp = line.split(":")
+            if len(temp) == 2:
+                value = extractValue(temp[1])
+                if value == COULDNT_READ:
+                    print("Couldnt read line:\n%s" % line)
+                    continue
+                type = temp[0].lower()
+                try:
+                    optionFunc = optionSwitcher.get(type)
+                    optionFunc(value, line)
+                except Exception:
+                    print("Couldn't read line:\n%s" % line)
+
+            else:
+                print("Couldnt read line:\n%s" % line)
+
+
     accounts = []
     path = os.path.dirname(os.path.realpath(__file__))
     with open(path+"/accounts.txt") as f:

@@ -55,7 +55,7 @@ If the supplied does not work please do the following:
 ## Usage with Python
 1. Open accounts.txt and enter your account information in **username:password** format, one account per line
 2. Open cmd (Type Command Prompt in the windows search) and type **cd "YOUR PROJECT PATH HERE"** for example **cd "C:\Users\Jannik\source\repos\TriviaBot"**
-3. Start the bot with **python TriviaBot.py**
+3. Start the bot by running start.bat
 4. ???
 5. Profit
 
