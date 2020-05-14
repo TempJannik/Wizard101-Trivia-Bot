@@ -180,7 +180,7 @@ class TriviaBot:
                 return
             else:
                 print("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
-                doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
+                self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
 
     def getAnswer(self, category, question):
         if category == "Magical":
