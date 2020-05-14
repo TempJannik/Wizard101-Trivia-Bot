@@ -111,7 +111,7 @@ class TriviaBot:
         print("\n\nThread Summary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(len(self.accounts)) + " accounts.")
         self.driver.quit()
 
-    def doQuiz(self, quizName, quizUrl):
+    def doQuiz(self, quizName, quizUrl, numAttempts = 1):
         global totalCrownsEarned
         try:
             self.driver.get(quizUrl)
@@ -175,7 +175,12 @@ class TriviaBot:
                 print("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
             #print("Quiz finished")
         except Exception as e:
-            print("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
+            if numAttempts == 3:
+                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
+                return
+            else:
+                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
+                doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
 
     def getAnswer(self, category, question):
         if category == "Magical":
