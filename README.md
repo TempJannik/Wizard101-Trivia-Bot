@@ -60,13 +60,13 @@ If the supplied does not work please do the following:
 5. Profit
 
 ## Changelog
-May 14th 2020: Retry failed quizzes (Thanks @zisop16)
-May 13th 2020: Headless mode, stability improvements
-May 11th 2020: Multithreading support
-May 10th 2020: Removed Selenium logging, fixed bug, captcha retry limit
-May 8th 2020: Login stablility, better chrome clean up
-May 6th 2020: Fix Captcha bugs, exception handling, quiz throttle handling and version checking
-May 5th 2020: Initial Release
+- May 14th 2020: Retry failed quizzes (Thanks @zisop16)
+- May 13th 2020: Headless mode, stability improvements
+- May 11th 2020: Multithreading support
+- May 10th 2020: Removed Selenium logging, fixed bug, captcha retry limit
+- May 8th 2020: Login stablility, better chrome clean up
+- May 6th 2020: Fix Captcha bugs, exception handling, quiz throttle handling and version checking
+- May 5th 2020: Initial Release
 
 ## Credits
 - [The Daily Crown Quiz Answering Extension](https://chrome.google.com/webstore/detail/daily-crown-quiz-answerin/aihenldiapgpgknjngnabfnjdjjffljp) - Looking at it helped me understand the captchas better and some javascript handling.
