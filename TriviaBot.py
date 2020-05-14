@@ -602,8 +602,8 @@ def split(a, n):
 if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
     print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
-    print("To change the amount of parallel answering of Trivias change the number in threads.txt. Default: 1")
-    print("To run the bot in headless mode (Chrome will be invisible in background) change the number in headless.txt from 0 to 1")
+    print("To change the amount of parallel answering of Trivias, write threads: ThreadNumberHere in the options.txt")
+    print("To make chrome invisible, write headless: 1 or headless:0 for visibility")
     isVersionOutdated()
 
     path = os.path.dirname(os.path.realpath(__file__))
