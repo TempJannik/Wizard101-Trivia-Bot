@@ -196,6 +196,7 @@ class TriviaBot:
                 return
             else:
                 print("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
+                print(self.activeAccount)
                 self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
 
     def getAnswer(self, category, question):
@@ -302,11 +303,12 @@ class TriviaBot:
                     break
 
     def login(self, username, password):
+        global waitTime
         self.driver.get(self.login_url)
         time.sleep(1.5)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-            print("Too many requests, waiting 45 seconds for a retry.")
-            time.sleep(45)
+            print("Too many requests, waiting %i seconds for a retry." % waitTime)
+            time.sleep(waitTime)
             self.login(username, password)
             return
         login_btn = self.driver.find_element_by_xpath("//*[contains(text(), 'Login / SignUp')]")
