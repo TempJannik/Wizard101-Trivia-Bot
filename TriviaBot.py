@@ -15,15 +15,14 @@ from functools import reduce
 from PIL import Image
 from PIL import ImageGrab
 from pytesseract import Output
-tess.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-import os
 from selenium.webdriver.chrome.options import Options
 import threading
+import json
 
-
-version = "9"
+version = "10"
 totalCrownsEarned = 0
 headless = False
+tooManyRequestsCooldown = 45
 wordList = []
 
 def isVersionOutdated():
@@ -89,6 +88,7 @@ class TriviaBot:
                 #print("Switching Quiz")
                 self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
                 print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+                updateTotalEarned(self.activeAccountCrowns)
                 self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
             except Exception as e:
                 print("An error occured while doing Trivia for "+account[0]+", this account will be skipped. If you want to do trivia on this account please restart the bot after completion.")
@@ -113,13 +113,14 @@ class TriviaBot:
 
     def doQuiz(self, quizName, quizUrl, numAttempts = 1):
         global totalCrownsEarned
+        global tooManyRequestsCooldown
         try:
             self.driver.get(quizUrl)
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
                 #print("Not finished, sleeping...")
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-                    print("Too many requests, waiting 45 seconds for a retry.")
-                    time.sleep(45)
+                    print("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
+                    time.sleep(tooManyRequestsCooldown)
                     self.doQuiz(quizName, quizUrl)
                     return
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
@@ -490,11 +491,12 @@ class TriviaBot:
                     break
 
     def login(self, username, password):
+        global tooManyRequestsCooldown
         self.driver.get(self.login_url)
         time.sleep(1.5)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-            print("Too many requests, waiting 45 seconds for a retry.")
-            time.sleep(45)
+            print("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
+            time.sleep(tooManyRequestsCooldown)
             self.login(username, password)
             return
         login_btn = self.driver.find_element_by_xpath("//*[contains(text(), 'Login / SignUp')]")
@@ -599,25 +601,57 @@ def split(a, n):
     k, m = divmod(len(a), n)
     return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
 
+def updateTotalEarned(amountToAdd):
+    path = os.path.dirname(os.path.realpath(__file__))
+    with open(path+'/config.txt') as f:
+        data = json.load(f)
+    data["totalCrownsEarned"] = data["totalCrownsEarned"] + amountToAdd
+    with open(path+'/config.txt', 'w') as outfile:
+        json.dump(data, outfile, indent=4)
+
 if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
     print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
-    print("To change the amount of parallel answering of Trivias change the number in threads.txt. Default: 1")
-    print("To run the bot in headless mode (Chrome will be invisible in background) change the number in headless.txt from 0 to 1")
+    print("To change your settings navigate to the config.txt file and change the value to your desires")
+    print("To add accounts create a new line in accounts.txt in the username:password format")
     isVersionOutdated()
 
     path = os.path.dirname(os.path.realpath(__file__))
+    try:
+        with open(path+'/config.txt') as f:
+            data = json.load(f)
+
+        headless = data["headless"]
+        chunksAmount = data["threads"]
+        tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
+        crownsEarned = data["totalCrownsEarned"]
+        tess.pytesseract.tesseract_cmd = data["tesseractPath"]
+        print("Settings loaded:")
+        print("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
+        print("Threads (parallel sessions): "+str(chunksAmount))
+        print("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
+        print("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
+    except:
+        if os.path.exists(path+'/config.txt'):
+            os.remove(path+'/config.txt')
+        with open(path+'/config.txt', 'a') as f:
+            f.write("{\n")
+            f.write("\"threads\":1,\n")
+            f.write("\"headless\":0,\n")
+            f.write("\"tooManyRequestsCooldown\":45,\n")
+            f.write("\"totalCrownsEarned\":0,\n")
+            f.write("\"tesseractPath\":\"C:\\\Program Files\\\Tesseract-OCR\\\\tesseract.exe\"\n")
+            f.write("}")
+        print("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
+        time.sleep(5)
+        exit()
+
     with open(path+"/wordlist.txt") as f:
         for line in f:
             wordList.append(line)
             wordList.append(line + "s")
-    with open(path+'/threads.txt', 'r') as threadFile:
-        chunksAmount = int(threadFile.read())
-    with open(path+'/headless.txt', 'r') as headlessFile:
-        if int(headlessFile.read()) == 1:
-            headless = True
+
     accounts = []
-    path = os.path.dirname(os.path.realpath(__file__))
     with open(path+"/accounts.txt") as f:
         for line in f:
             data = line.split(':')
