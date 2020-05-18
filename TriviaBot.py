@@ -1,4 +1,3 @@
-
 import time
 import urllib.request
 import os
@@ -16,14 +15,25 @@ from PIL import Image
 from PIL import ImageGrab
 from pytesseract import Output
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 import threading
 import json
+import queue
+import io
 
-version = "10"
+"""###
+TODO:
+wordlist improvements - possibly get rid of existing base of wordlist to build a wordlist with exclusively KI captcha words to improve accuracy
+###"""
+
+version = "11"
 totalCrownsEarned = 0
 headless = False
 tooManyRequestsCooldown = 45
+answerDelay = 0.0
 wordList = []
+accountQueue = queue.Queue()
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -31,161 +41,7 @@ def isVersionOutdated():
         print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version")
         input("Press any keys to continue with the old version...")
 
-class TriviaBot:
-    def __init__(self, accounts):
-        global headless
-        self.login_url = "https://www.freekigames.com/trivia"
-        chrome_options = Options()
-        if headless:
-            chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--log-level=3")
-        chrome_options.add_argument("--enable-automation")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-infobars")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-browser-side-navigation")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        path = os.path.dirname(os.path.realpath(__file__))
-        self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
-        self.earnedCrowns = 0
-        self.activeAccount = ""
-        self.accounts = accounts
-
-    def start(self):
-        global headless
-        for account in self.accounts:
-            try:
-                print("Starting login for " +account[0])
-                self.login(account[0], account[1])
-                self.driver.switch_to.default_content()
-                while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
-                    print("Login failed, retrying...")
-                    self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
-                    self.login(account[0], account[1])
-                    time.sleep(2)
-                self.activeAccount = account[0]
-                self.activeAccountCrowns = 0
-                #print("Finished login for " +account[0])
-                
-                self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Conjuring", "https://www.freekigames.com/wizard101-conjuring-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Marleybone", "https://www.freekigames.com/wizard101-marleybone-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Mystical", "https://www.freekigames.com/wizard101-mystical-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Spellbinding", "https://www.freekigames.com/wizard101-spellbinding-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Spells", "https://www.freekigames.com/wizard101-spells-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
-                #print("Switching Quiz")
-                self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
-                print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
-                updateTotalEarned(self.activeAccountCrowns)
-                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
-            except Exception as e:
-                print("An error occured while doing Trivia for "+account[0]+", this account will be skipped. If you want to do trivia on this account please restart the bot after completion.")
-                print("Following Exception occured while trying to process an account:\n"+str(e))
-                self.driver.quit()
-                chrome_options = Options()
-                if headless:
-                    chrome_options.add_argument("--headless")
-                chrome_options.add_argument("--log-level=3")
-                chrome_options.add_argument("--enable-automation")
-                chrome_options.add_argument("--no-sandbox")
-                chrome_options.add_argument("--disable-infobars")
-                chrome_options.add_argument("--disable-dev-shm-usage")
-                chrome_options.add_argument("--disable-browser-side-navigation")
-                chrome_options.add_argument("--disable-gpu")
-                chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-                path = os.path.dirname(os.path.realpath(__file__))
-                self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
-
-        print("\n\nThread Summary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(len(self.accounts)) + " accounts.")
-        self.driver.quit()
-
-    def doQuiz(self, quizName, quizUrl, numAttempts = 1):
-        global totalCrownsEarned
-        global tooManyRequestsCooldown
-        try:
-            self.driver.get(quizUrl)
-            while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
-                #print("Not finished, sleeping...")
-                if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-                    print("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
-                    time.sleep(tooManyRequestsCooldown)
-                    self.doQuiz(quizName, quizUrl)
-                    return
-                if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
-                    print("Quiz throttled, skipping quiz.")
-                    return
-
-                while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
-                    time.sleep(0.01)
-                self.driver.execute_script("""for (let index = 0; index < 4; index++) { document.getElementsByClassName('answer')[index].style.visibility = "visible"; }""")
-                question = ""
-                while question == "":
-                    #print("Looking for question")
-                    question = self.driver.find_element_by_class_name("quizQuestion").text
-               # print("Found question: "+question)
-                correctAnswer = self.getAnswer(quizName, question)
-                #print("Found answer: "+correctAnswer)
-                if correctAnswer == "Invalid":
-                    print(question+" was not recognized as a question.")
-                    return
-
-                self.driver.execute_script("""
-                    var choices = []
-                    for (i = 0; i < 4; i++) {
-                        choices.push(document.getElementsByClassName('answerText')[i].innerText);
-                    }
-
-                    //click on the correct answer, then hit the next quiz button
-                    for (i = 0; i < 4; i++) {
-                        if (arguments[0] == choices[i]) {
-                            document.getElementsByName('checkboxtag')[i].click();
-                            document.getElementById('nextQuestion').click();
-                            break;
-                        }
-                    }""", correctAnswer)
-                time.sleep(0.5)
-            
-            #print("Quiz is over, clicking on see your score button")
-            self.driver.find_element_by_xpath("//a[contains(@class, 'login button purple')]").click()
-            #print("Switching to frame for captcha")
-            iframe = self.driver.find_element_by_xpath("//iframe")
-            self.driver.switch_to.frame(iframe)
-            #print("Attemping to solve captcha")
-            self.solveCaptcha("//a[contains(@class, 'buttonsubmit')]")
-            #print("Solved captcha")
-            self.driver.switch_to.default_content()
-            #Need to find out if success, then add to total crowns earned
-            #print("Did we win?")
-            time.sleep(0.3)
-            if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Transferrable Crowns')]")) != 0:
-                self.earnedCrowns += 10
-                self.activeAccountCrowns += 10
-                totalCrownsEarned += 10
-                print("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
-            #print("Quiz finished")
-        except Exception as e:
-            if numAttempts == 3:
-                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
-                return
-            else:
-                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
-                self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
-
-    def getAnswer(self, category, question):
-        if category == "Magical":
-            switcher = {
+switcherMagical = {
                 "Zafaria is home to what cultures?":"Gorillas, Zebras, Lions",
                 "Which of these locations is not in Wizard City?":"Digmore Station",
                 "What book does Professor Drake send you to the library to check out?":"Book on the Wumpus",
@@ -208,9 +64,8 @@ class TriviaBot:
                 "What did Prospector Zeke lose track of in MooShu?":"Blue Oysters",
                 "Which is the only school left standing in Dragonspyre?":"Fire",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Adventuring":
-            switcher = {
+
+switcherAdventuring = {
                 "What is Professor Falmea's favorite food?":"Pasta Arrabiata",
                 "What hand does Lady Oriel hold her wand in?":"Trick question, she has a sword.",
                 "What determines the colors of the manders in Krok?":"Where they come from and their school of focus.",
@@ -232,9 +87,8 @@ class TriviaBot:
                 "What school is the Gurtok Demon focused on?":"Balance",
                 "Shaka Zebu is known best as:":"The Greatest Living Zebra Warrior",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Conjuring":
-            switcher = {
+
+switcherConjuring = {
                 "Who is Bill Tanner's sister?":"Sarah Tanner",
                 "What is the shape on the weather vanes in the Shopping District?":"Half moon/moon",
                 "What book was Anna Flameright accused of stealing?":"Advanced Flameology",
@@ -249,9 +103,8 @@ class TriviaBot:
                 "Kirby Longspear was once a student of which school of magic?":"Death",
                 "The Swordsman Destreza was killed by:":"A Gorgon",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Marleybone":
-            switcher = {
+
+switcherMarleybone = {
                 "Arthur Wethersfield is A:..":"Dog",
                 "What course did Herold Digmoore study?":"Ancient Myths for Parliament",
                 "What is flying around in Regent's Square?":"Newspapers",
@@ -273,9 +126,8 @@ class TriviaBot:
                 "What transports you from place to place in Marleybone?":"Hot Air Balloons",
                 "What did Prospector Zeke lose in Marleybone?":"The Stray Cats",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Mystical":
-            switcher = {
+
+switcherMystical = {
                 "Who is the Emperor of Mooshu's Royal Guard?":"Noboru Akitame",
                 "In what world would you find the Spider Temple":"Zafaria",
                 "Where is the only pure fire in the Spiral found?":"Wizard City",
@@ -297,9 +149,8 @@ class TriviaBot:
                 "Who asks you to find Khrysanthemums?":"Eloise Merryweather",
                 "What is used to travel to the Isle of Arachnis?":"Ice Archway",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Spellbinding":
-            switcher = {
+
+switcherSpellbinding = {
                 "Who makes the harpsicord for Shelus?":"Gretta Darkkettle",
                 "Morganthe got the Horned Crown from the Spriggan:":"Gisela",
                 "Sumner Fieldgold twice asks you to recover what for him?":"Shrubberies",
@@ -321,9 +172,8 @@ class TriviaBot:
                 "Where has Pharenor been imprisoned?":"Skythorn Tower",
                 "Who grants the first Shadow Magic spell?":"Sophia DarkSide",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Spells":
-            switcher = {
+
+switcherSpells = {
                "Mortis can teach you this.":"Tranquilize",
                 "What term best fits Sun Magic Spells?":"Enchantment",
                 "What type of spells are Ice, Fire, and Storm?":"Elemental",
@@ -345,9 +195,8 @@ class TriviaBot:
                 "Ether Shield protects against what?":"Life and Death attacks",
                 "Tish'Mah specializes in spells that mostly affect these:":"Minions",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Valencia":
-            switcher = {
+
+switcherValencia = {
                 "Historian Gonzago is on a stage, who isn't in the audience?":"Giafra",
                 'Historian Gonzago sends you on a "Paper Chase," who do you talk to during that quest?':"Magdalena",
                 "How many Mechanical Birds do you collect in Sivella?":"5",
@@ -369,9 +218,8 @@ class TriviaBot:
                 "You need a good eye to save these in Granchia...":"Art Objects",
                 "You won't find this kind of Armada Troop in Sivella!":"Battle Angel",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Wizard":
-            switcher = {
+
+switcherWizard = {
                 "Who is the Fire School professor?":"Dalia Falmea",
                 "What school does Malorn Ashthorn think is the best?":"Death",
                 "What is the name of the bridge in front of the Cave to Nightside?":"Rainbow Bridge",
@@ -393,9 +241,8 @@ class TriviaBot:
                 "What is Mindy's last name (she's on Colossus Blvd)?":"Pixiecrown",
                 "What is the name of the Ice Tree in Ravenwood?":"Kelvin",
             }
-            return switcher.get(question, "Invalid")
-        if category == "Zafaria":
-            switcher = {
+
+switcherZafaria = {
                 "What does Lethu Blunthoof says about Ghostmanes?":"You never can tell with them!",
                 "Sir Reginal Baxby's cousin is:":"Mondli Greenhoof",
                 "Baobab is governed by:":"A Council of three councilors.",
@@ -417,7 +264,186 @@ class TriviaBot:
                 "Who are Hannibal Onetusk's brother and co-pilot?":"Mago and Sobaka",
                 "Zamunda's great assassin is known as:":"Karl the Jackal",
             }
-            return switcher.get(question, "Invalid")
+
+class TriviaBot:
+    def __init__(self):
+        global headless
+        self.login_url = "https://www.freekigames.com/trivia"
+        chrome_options = Options()
+        if headless:
+            chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--log-level=3")
+        chrome_options.add_argument("--enable-automation")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-infobars")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-browser-side-navigation")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        path = os.path.dirname(os.path.realpath(__file__))
+        self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
+        self.earnedCrowns = 0
+        self.activeAccount = ""
+        self.accountsRun = 0
+
+    def start(self):
+        global headless
+        global accountQueue
+        while not accountQueue.empty():
+            try:
+                account = accountQueue.get()
+                print("Starting login for " +account[0])
+                self.login(account[0], account[1])
+                self.driver.switch_to.default_content()
+                while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
+                    print("Login failed, retrying...")
+                    self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+                    self.login(account[0], account[1])
+                    time.sleep(2)
+                self.activeAccount = account[0]
+                self.activeAccountCrowns = 0
+                
+                self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
+                self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
+                self.doQuiz("Conjuring", "https://www.freekigames.com/wizard101-conjuring-trivia")
+                self.doQuiz("Marleybone", "https://www.freekigames.com/wizard101-marleybone-trivia")
+                self.doQuiz("Mystical", "https://www.freekigames.com/wizard101-mystical-trivia")
+                self.doQuiz("Spellbinding", "https://www.freekigames.com/wizard101-spellbinding-trivia")
+                self.doQuiz("Spells", "https://www.freekigames.com/wizard101-spells-trivia")
+                self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
+                self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
+                self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
+                print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+                updateTotalEarned(self.activeAccountCrowns)
+                self.accountsRun = self.accountsRun + 1
+                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+            except Exception as e:
+                print("An error occured while doing Trivia for "+account[0]+", this account will be skipped. If you want to do trivia on this account please restart the bot after completion.")
+                print("Following Exception occured while trying to process an account:\n"+str(e))
+                self.driver.quit()
+                chrome_options = Options()
+                if headless:
+                    chrome_options.add_argument("--headless")
+                chrome_options.add_argument("--log-level=3")
+                chrome_options.add_argument("--enable-automation")
+                chrome_options.add_argument("--no-sandbox")
+                chrome_options.add_argument("--disable-infobars")
+                chrome_options.add_argument("--disable-dev-shm-usage")
+                chrome_options.add_argument("--disable-browser-side-navigation")
+                chrome_options.add_argument("--disable-gpu")
+                chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+                path = os.path.dirname(os.path.realpath(__file__))
+                self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
+
+        print("\n\nThread Summary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(self.accountsRun) + " accounts.")
+        self.driver.quit()
+
+    def doQuiz(self, quizName, quizUrl, numAttempts = 1):
+        global totalCrownsEarned
+        global tooManyRequestsCooldown
+        global answerDelay
+        try:
+            self.driver.get(quizUrl)
+            WebDriverWait(self.driver,10).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Trivia')]")) # I noticed if the internet sucks or the page bugs out, when switching triiva the result is a blank blue page, this ensures the page loaded properly and if not raise an exception forcing a reload
+            while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
+                #print("Not finished, sleeping...")
+                if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
+                    print("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
+                    time.sleep(tooManyRequestsCooldown)
+                    self.doQuiz(quizName, quizUrl)
+                    return
+                if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
+                    print("Quiz throttled, skipping quiz.")
+                    return
+
+                while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
+                    time.sleep(0.01)
+                self.driver.execute_script("""for (let index = 0; index < 4; index++) { document.getElementsByClassName('answer')[index].style.visibility = "visible"; }""")
+                question = ""
+                while question == "":
+                    #print("Looking for question")
+                    question = self.driver.find_element_by_class_name("quizQuestion").text
+                # print("Found question: "+question)
+                correctAnswer = self.getAnswer(quizName, question)
+                #print("Found answer: "+correctAnswer)
+                if correctAnswer == "Invalid":
+                    print(question+" was not recognized as a question.")
+                    return
+
+                time.sleep(answerDelay)
+
+                self.driver.execute_script("""
+                    var choices = []
+                    for (i = 0; i < 4; i++) {
+                        choices.push(document.getElementsByClassName('answerText')[i].innerText);
+                    }
+
+                    //click on the correct answer, then hit the next quiz button
+                    for (i = 0; i < 4; i++) {
+                        if (arguments[0] == choices[i]) {
+                            document.getElementsByName('checkboxtag')[i].click();
+                            document.getElementById('nextQuestion').click();
+                            break;
+                        }
+                    }""", correctAnswer)
+                time.sleep(0.5)
+            
+            self.driver.find_element_by_xpath("//a[contains(@class, 'login button purple')]").click()
+            WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.XPATH,"//iframe"))
+            iframe = self.driver.find_element_by_xpath("//iframe")
+            self.driver.switch_to.frame(iframe)
+            WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.ID,"captchaImage"))
+            self.solveCaptcha("//a[contains(@class, 'buttonsubmit')]")
+            self.driver.switch_to.default_content()
+            WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Transferrable Crowns')]") or self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Better luck next time!')]"))
+            if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Transferrable Crowns')]")) != 0:
+                self.earnedCrowns += 10
+                self.activeAccountCrowns += 10
+                totalCrownsEarned += 10
+                print("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
+            else:
+                print("Quiz failed, restarting...")
+                self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
+        except Exception as e:
+            if numAttempts == 3:
+                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
+                return
+            else:
+                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
+                self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
+
+    def getAnswer(self, category, question):
+        global switcherMagical
+        global switcherAdventuring
+        global switcherConjuring
+        global switcherMarleybone
+        global switcherMystical
+        global switcherSpellbinding
+        global switcherSpells
+        global switcherValencia
+        global switcherWizard
+        global switcherZafaria
+
+        if category == "Magical":
+            return switcherMagical.get(question, "Invalid")
+        if category == "Adventuring":
+            return switcherAdventuring.get(question, "Invalid")
+        if category == "Conjuring":
+            return switcherConjuring.get(question, "Invalid")
+        if category == "Marleybone":
+            return switcherMarleybone.get(question, "Invalid")
+        if category == "Mystical":
+            return switcherMystical.get(question, "Invalid")
+        if category == "Spellbinding":
+            return switcherSpellbinding.get(question, "Invalid")
+        if category == "Spells":
+            return switcherSpells.get(question, "Invalid")
+        if category == "Valencia":
+            return switcherValencia.get(question, "Invalid")
+        if category == "Wizard":
+            return switcherWizard.get(question, "Invalid")
+        if category == "Zafaria":
+            return switcherZafaria.get(question, "Invalid")
 
     def solveCaptcha(self, submitXPath): # submitXPath = the XPath of the element needed to submit the captcha
         global wordList
@@ -430,9 +456,8 @@ class TriviaBot:
         cnv.getContext('2d').drawImage(ele, 0, 0);
         return cnv.toDataURL('image/jpeg').substring(22);    
         """, self.driver.find_element_by_id("captchaImage"))   #"/html/body/form/div[2]/div[3]/span[3]/div[1]/img"))
-        with open(r"image.png", 'wb') as f:
-            f.write(base64.b64decode(img_base64))
-        origImg = Image.open(r'image.png')
+        msg = base64.b64decode(img_base64)
+        origImg = Image.open(io.BytesIO(msg))
         img = origImg.load()
 
         self.removeYellowLine(origImg, img)
@@ -444,14 +469,14 @@ class TriviaBot:
         captchaResult = captchaResult.replace("\n","")
         if captchaResult == "":
                 self.driver.find_element_by_id("captchaImage").click()
-       # print("Captcha Result: "+captchaResult)
+
         self.driver.execute_script("document.getElementById(\"captcha\").value = arguments[0]", captchaResult)
         submitBtns = self.driver.find_elements_by_xpath(submitXPath)
         for btn in submitBtns:
             if btn.is_enabled() and btn.is_displayed():
                 btn.click()
                 break
-        #print("Submitted Captcha")
+
         while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'You must correct')]")) > 0: # Failed captcha
             currentTry = currentTry + 1
             if currentTry >= retryLimit: #To Prevent getting stuck for whatever reason, add a retry limit, if the captcha isnt solved the following code should have it
@@ -459,7 +484,6 @@ class TriviaBot:
             self.driver.find_element_by_id("captcha").clear()
             #self.driver.find_element_by_id("captchaImage").click()
             time.sleep(1)
-            #print("Downloading Image")
             img_base64 = self.driver.execute_script("""
             var ele = arguments[0];
             var cnv = document.createElement('canvas');
@@ -467,13 +491,10 @@ class TriviaBot:
             cnv.getContext('2d').drawImage(ele, 0, 0);
             return cnv.toDataURL('image/jpeg').substring(22);    
             """, self.driver.find_element_by_id("captchaImage"))
-            with open(r"image.png", 'wb') as f:
-                f.write(base64.b64decode(img_base64))
-            origImg = Image.open(r'image.png')
+            msg = base64.b64decode(img_base64)
+            origImg = Image.open(io.BytesIO(msg))
             img = origImg.load()
-            #print("Processing image")
             self.removeYellowLine(origImg, img)
-            #print("Tesseracting...")
             captchaResult = tess.image_to_string(origImg, lang="eng", config="-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").lower()
             captchaResult = captchaResult.replace(" ","")
             closestMatches = difflib.get_close_matches(captchaResult, wordList)
@@ -482,7 +503,7 @@ class TriviaBot:
             captchaResult = captchaResult.replace("\n","")
             if captchaResult == "":
                 self.driver.find_element_by_id("captchaImage").click()
-            #print("Captcha Result: "+captchaResult)
+
             self.driver.execute_script("document.getElementById(\"captcha\").value = arguments[0]", captchaResult)
             submitBtns = self.driver.find_elements_by_xpath(submitXPath)
             for btn in submitBtns:
@@ -517,9 +538,8 @@ class TriviaBot:
                 if btn.is_enabled() and btn.is_displayed():
                     btn.click()
                     break
-
+        WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'captcha')]") or self.driver.find_elements(By.XPATH,"//a[contains(@class, 'logout button orange')]"))
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'captcha')]")) > 0:
-            #print("Found captcha")
             self.solveCaptcha("//*[contains(text(), 'Login')]")
         else:
             print("No Captcha! Login successful")
@@ -596,11 +616,6 @@ class TriviaBot:
         if not ok:
             self.removeYellowLine(origImage, img)
 
-
-def split(a, n):
-    k, m = divmod(len(a), n)
-    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
-
 def updateTotalEarned(amountToAdd):
     path = os.path.dirname(os.path.realpath(__file__))
     with open(path+'/config.txt') as f:
@@ -625,41 +640,70 @@ if __name__ == '__main__':
         chunksAmount = data["threads"]
         tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
         crownsEarned = data["totalCrownsEarned"]
+        answerDelay = data["answerDelay"]
         tess.pytesseract.tesseract_cmd = data["tesseractPath"]
         print("Settings loaded:")
         print("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
         print("Threads (parallel sessions): "+str(chunksAmount))
+        print("Delay after Answer: "+str(answerDelay))
         print("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
         print("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
     except:
-        if os.path.exists(path+'/config.txt'):
-            os.remove(path+'/config.txt')
-        with open(path+'/config.txt', 'a') as f:
-            f.write("{\n")
-            f.write("\"threads\":1,\n")
-            f.write("\"headless\":0,\n")
-            f.write("\"tooManyRequestsCooldown\":45,\n")
-            f.write("\"totalCrownsEarned\":0,\n")
-            f.write("\"tesseractPath\":\"C:\\\Program Files\\\Tesseract-OCR\\\\tesseract.exe\"\n")
-            f.write("}")
-        print("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
-        time.sleep(5)
-        exit()
+        # First try loading old config, if success: make new config with old config settings + changes -> Config migration for new configs
+        try:
+            with open(path+'/config.txt') as f:
+                data = json.load(f)
+
+            headless = data["headless"]
+            chunksAmount = data["threads"]
+            tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
+            crownsEarned = data["totalCrownsEarned"]
+            tess.pytesseract.tesseract_cmd = data["tesseractPath"]
+            data["answerDelay"] = 0.0
+            answerDelay = data["answerDelay"]
+
+            if os.path.exists(path+'/config.txt'):
+                os.remove(path+'/config.txt')
+            with open(path+'/config.txt', 'w') as outfile:
+                json.dump(data, outfile, indent=4)
+
+            print("Settings loaded:")
+            print("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
+            print("Threads (parallel sessions): "+str(chunksAmount))
+            print("Delay after Answer: "+str(answerDelay))
+            print("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
+            print("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
+        except:
+            print("Failed to migrate config, creating new config...")
+            if os.path.exists(path+'/config.txt'):
+                os.remove(path+'/config.txt')
+            with open(path+'/config.txt', 'a') as f:
+                f.write("{\n")
+                f.write("\"threads\":1,\n")
+                f.write("\"headless\":0,\n")
+                f.write("\"tooManyRequestsCooldown\":45,\n")
+                f.write("\"totalCrownsEarned\":0,\n")
+                f.write("\"answerDelay\":0.0,\n")
+                f.write("\"tesseractPath\":\"C:\\\Program Files\\\Tesseract-OCR\\\\tesseract.exe\"\n")
+                f.write("}")
+            print("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
+            time.sleep(5)
+            exit()  
+        
 
     with open(path+"/wordlist.txt") as f:
         for line in f:
             wordList.append(line)
             wordList.append(line + "s")
 
-    accounts = []
     with open(path+"/accounts.txt") as f:
         for line in f:
             data = line.split(':')
-            accounts.append((data[0], data[1]))
-    accountChunks = split(accounts, chunksAmount)
+            accountQueue.put((data[0], data[1]))
+    accountsLen = accountQueue.qsize()
     threads = []
-    for chunk in accountChunks:
-        bot = TriviaBot(chunk)
+    for i in range(chunksAmount):
+        bot = TriviaBot()
         t = threading.Thread(target=bot.start)
         threads.append(t)
     for x in threads:
@@ -667,8 +711,5 @@ if __name__ == '__main__':
     for x in threads:
         x.join()
 
-    print("\n\nSummary\nEarned " + str(totalCrownsEarned)+" crowns on " + str(len(accounts)) + " accounts.")
+    print("\n\nSummary\nEarned " + str(totalCrownsEarned)+" crowns on " + str(accountsLen) + " accounts.")
     input()
-
-    
-
