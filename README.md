@@ -20,8 +20,20 @@ To use this you have 2 choices, with or without Python. Using python is better f
 - Solve Trivias on multiple accounts at the same time
 - Run "invisible" in background
 
+## Config Guide
+After the bot starts for the first time it will generate a **config.txt** file. Open it with any texteditor to change your settings.
+Available settings:
+**threads**: This is the amount of parallel accounts the bot will do trivia on. Default is 1, I recommend not to go over 2 as you might experience more Too Many Request errors.
+**headless**: This mode, if turned on, will make chrome run in the background. You will not see any chrome tabs, you only have the console output. To turn it on set to 1, set back to 0 to see the tabs again.
+**tooManyRequestsCooldown**: The amount of seconds to wait after receiving the "Too Many Requests" error. Default is 45 seconds.
+**totalCrownsEarned**: The total amount of crowns this bot has earned you. This will update everytime an account completes its trivias and will persist across multiple uses of the bot.
+**answerDelay**: The amount of seconds to wait before answering each question in a trivia. This can help prevent "Too Many Requests" errors. Default is set to 0.0 seconds
+**tesseractPath**: The Path to your tesseract installation. If you did not install it to "C:\\Program Files\\Tesseract-OCR\\tesseract.exe" like me please change it to your installation path here.
+
+Restart the bot for the changes to take effect.
+
 ## Installation without Python
-1. Download the release.rar from the [Releases section](https://github.com/TempJannik/Wizard101-Trivia-Bot/releases) and unpack in into a new folder.
+1. Download the release.zip from the [Releases section](https://github.com/TempJannik/Wizard101-Trivia-Bot/releases) and extract the contents into a new folder.
 2. Tesseract 5 - **Make sure to install it under C:\Program Files\Tesseract-OCR** https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-v5.0.0-alpha.20200328.exe
 3. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
 If the supplied does not work please do the following:
@@ -73,3 +85,4 @@ If the supplied does not work please do the following:
 - [The Daily Crown Quiz Answering Extension](https://chrome.google.com/webstore/detail/daily-crown-quiz-answerin/aihenldiapgpgknjngnabfnjdjjffljp) - Looking at it helped me understand the captchas better and some javascript handling.
 - Zenmaster#6969 - Helping out with testing and formatting Questions/Answers
 - ToxOver#9831 - Me
+- Any Contributors on Github and submitters of bugs 

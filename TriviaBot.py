@@ -24,7 +24,10 @@ import io
 
 """###
 TODO:
-wordlist improvements - possibly get rid of existing base of wordlist to build a wordlist with exclusively KI captcha words to improve accuracy
+Wordlist improvements/Captcha image processing improvements - possibly get rid of existing base of wordlist to build a wordlist with exclusively KI captcha words to improve accuracy. Better captchas -> less requests to KI servers -> Less ratelimits
+Work more with WebDriverWaits
+Spells trivia throwing exceptions? Traceback empty?: Message:
+
 ###"""
 
 version = "11"
@@ -34,12 +37,13 @@ tooManyRequestsCooldown = 45
 answerDelay = 0.0
 wordList = []
 accountQueue = queue.Queue()
+lock = threading.Lock()
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
     if newestVersion != version:
         print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version")
-        input("Press any keys to continue with the old version...")
+        input("Press enter to continue with the old version...")
 
 switcherMagical = {
                 "Zafaria is home to what cultures?":"Gorillas, Zebras, Lions",
@@ -174,7 +178,7 @@ switcherSpellbinding = {
             }
 
 switcherSpells = {
-               "Mortis can teach you this.":"Tranquilize",
+                "Mortis can teach you this.":"Tranquilize",
                 "What term best fits Sun Magic Spells?":"Enchantment",
                 "What type of spells are Ice, Fire, and Storm?":"Elemental",
                 "Who can teach you the Life Shield Spell?":"Sabrina Greenstar",
@@ -267,8 +271,14 @@ switcherZafaria = {
 
 class TriviaBot:
     def __init__(self):
-        global headless
         self.login_url = "https://www.freekigames.com/trivia"
+        self.startChrome()
+        self.earnedCrowns = 0
+        self.activeAccount = ""
+        self.accountsRun = 0
+
+    def startChrome(self):
+        global headless
         chrome_options = Options()
         if headless:
             chrome_options.add_argument("--headless")
@@ -282,61 +292,52 @@ class TriviaBot:
         chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         path = os.path.dirname(os.path.realpath(__file__))
         self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
-        self.earnedCrowns = 0
-        self.activeAccount = ""
-        self.accountsRun = 0
 
     def start(self):
-        global headless
         global accountQueue
         while not accountQueue.empty():
-            try:
-                account = accountQueue.get()
-                print("Starting login for " +account[0])
-                self.login(account[0], account[1])
-                self.driver.switch_to.default_content()
-                while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
-                    print("Login failed, retrying...")
-                    self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
-                    self.login(account[0], account[1])
-                    time.sleep(2)
-                self.activeAccount = account[0]
-                self.activeAccountCrowns = 0
-                
-                self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
-                self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
-                self.doQuiz("Conjuring", "https://www.freekigames.com/wizard101-conjuring-trivia")
-                self.doQuiz("Marleybone", "https://www.freekigames.com/wizard101-marleybone-trivia")
-                self.doQuiz("Mystical", "https://www.freekigames.com/wizard101-mystical-trivia")
-                self.doQuiz("Spellbinding", "https://www.freekigames.com/wizard101-spellbinding-trivia")
-                self.doQuiz("Spells", "https://www.freekigames.com/wizard101-spells-trivia")
-                self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
-                self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
-                self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
-                print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
-                updateTotalEarned(self.activeAccountCrowns)
-                self.accountsRun = self.accountsRun + 1
-                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
-            except Exception as e:
-                print("An error occured while doing Trivia for "+account[0]+", this account will be skipped. If you want to do trivia on this account please restart the bot after completion.")
-                print("Following Exception occured while trying to process an account:\n"+str(e))
-                self.driver.quit()
-                chrome_options = Options()
-                if headless:
-                    chrome_options.add_argument("--headless")
-                chrome_options.add_argument("--log-level=3")
-                chrome_options.add_argument("--enable-automation")
-                chrome_options.add_argument("--no-sandbox")
-                chrome_options.add_argument("--disable-infobars")
-                chrome_options.add_argument("--disable-dev-shm-usage")
-                chrome_options.add_argument("--disable-browser-side-navigation")
-                chrome_options.add_argument("--disable-gpu")
-                chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-                path = os.path.dirname(os.path.realpath(__file__))
-                self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
+            account = accountQueue.get()
+            self.doAccount(account)
 
         print("\n\nThread Summary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(self.accountsRun) + " accounts.")
         self.driver.quit()
+
+    def doAccount(self, account, numAttempts = 1):
+        try:
+            print("Starting login for " +account[0])
+            self.login(account[0], account[1])
+            self.driver.switch_to.default_content()
+            while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
+                print("Login failed, retrying...")
+                self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+                self.login(account[0], account[1])
+                time.sleep(2)
+            self.activeAccount = account[0]
+            self.activeAccountCrowns = 0
+            
+            self.doQuiz("Magical", "https://www.freekigames.com/wizard101-magical-trivia")
+            self.doQuiz("Adventuring", "https://www.freekigames.com/wizard101-adventuring-trivia")
+            self.doQuiz("Conjuring", "https://www.freekigames.com/wizard101-conjuring-trivia")
+            self.doQuiz("Marleybone", "https://www.freekigames.com/wizard101-marleybone-trivia")
+            self.doQuiz("Mystical", "https://www.freekigames.com/wizard101-mystical-trivia")
+            self.doQuiz("Spellbinding", "https://www.freekigames.com/wizard101-spellbinding-trivia")
+            self.doQuiz("Spells", "https://www.freekigames.com/wizard101-spells-trivia")
+            self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
+            self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
+            self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
+            print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+            updateTotalEarned(self.activeAccountCrowns)
+            self.accountsRun = self.accountsRun + 1
+            self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
+        except Exception as e:
+            self.driver.quit()
+            self.startChrome()
+            if numAttempts == 3:
+                print("Following Exception occured while trying to complete this account "+account[0]+ ". Skipping account.\n"+str(e))
+                return
+            else:
+                print("Following Exception occured while trying to complete this account "+account[0]+ ". Restarting account.\n"+str(e))
+                self.doAccount(account, numAttempts = numAttempts+1)
 
     def doQuiz(self, quizName, quizUrl, numAttempts = 1):
         global totalCrownsEarned
@@ -463,10 +464,11 @@ class TriviaBot:
         self.removeYellowLine(origImg, img)
         captchaResult = tess.image_to_string(origImg, lang="eng", config="-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").lower()
         captchaResult = captchaResult.replace(" ","")
-        closestMatches = difflib.get_close_matches(captchaResult, wordList)
-        if len(closestMatches) > 0:
-            captchaResult = closestMatches[0]
         captchaResult = captchaResult.replace("\n","")
+        if captchaResult not in wordList:
+            closestMatches = difflib.get_close_matches(captchaResult, wordList)
+            if len(closestMatches) > 0:
+                captchaResult = closestMatches[0]
         if captchaResult == "":
                 self.driver.find_element_by_id("captchaImage").click()
 
@@ -497,12 +499,13 @@ class TriviaBot:
             self.removeYellowLine(origImg, img)
             captchaResult = tess.image_to_string(origImg, lang="eng", config="-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").lower()
             captchaResult = captchaResult.replace(" ","")
-            closestMatches = difflib.get_close_matches(captchaResult, wordList)
-            if len(closestMatches) > 0:
-                captchaResult = closestMatches[0]
             captchaResult = captchaResult.replace("\n","")
+            if captchaResult not in wordList:
+                closestMatches = difflib.get_close_matches(captchaResult, wordList)
+                if len(closestMatches) > 0:
+                    captchaResult = closestMatches[0]
             if captchaResult == "":
-                self.driver.find_element_by_id("captchaImage").click()
+                    self.driver.find_element_by_id("captchaImage").click()
 
             self.driver.execute_script("document.getElementById(\"captcha\").value = arguments[0]", captchaResult)
             submitBtns = self.driver.find_elements_by_xpath(submitXPath)
@@ -617,12 +620,14 @@ class TriviaBot:
             self.removeYellowLine(origImage, img)
 
 def updateTotalEarned(amountToAdd):
+    lock.acquire() # Aquire lock to prevent other threads opening the file while its being messed with
     path = os.path.dirname(os.path.realpath(__file__))
     with open(path+'/config.txt') as f:
         data = json.load(f)
     data["totalCrownsEarned"] = data["totalCrownsEarned"] + amountToAdd
     with open(path+'/config.txt', 'w') as outfile:
         json.dump(data, outfile, indent=4)
+    lock.release()
 
 if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
@@ -700,7 +705,11 @@ if __name__ == '__main__':
         for line in f:
             data = line.split(':')
             accountQueue.put((data[0], data[1]))
-    accountsLen = accountQueue.qsize()
+    if accountQueue.empty():
+        print("No accounts found in accounts.txt! Please add accounts to use this bot.")
+        time.sleep(5)
+        exit()
+    accountsLen = accountQueue.qsize()     
     threads = []
     for i in range(chunksAmount):
         bot = TriviaBot()
@@ -712,4 +721,4 @@ if __name__ == '__main__':
         x.join()
 
     print("\n\nSummary\nEarned " + str(totalCrownsEarned)+" crowns on " + str(accountsLen) + " accounts.")
-    input()
+    input("Press enter to quit..")
