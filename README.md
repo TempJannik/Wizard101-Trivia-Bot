@@ -72,6 +72,7 @@ If the supplied does not work please do the following:
 5. Profit
 
 ## Changelog
+- May 20th 2020: Fixed a variety of bugs/instabilities, accounts will restart instead of skipping on error, account queue implemented, preventing downtime on threads, config migration
 - May 15th 2020: Added proper Config file, crowns tracking
 - May 14th 2020: Retry failed quizzes (Thanks @zisop16)
 - May 13th 2020: Headless mode, stability improvements
