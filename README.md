@@ -23,12 +23,12 @@ To use this you have 2 choices, with or without Python. Using python is better f
 ## Config Guide
 After the bot starts for the first time it will generate a **config.txt** file. Open it with any texteditor to change your settings.
 Available settings:
-**threads**: This is the amount of parallel accounts the bot will do trivia on. Default is 1, I recommend not to go over 2 as you might experience more Too Many Request errors.
-**headless**: This mode, if turned on, will make chrome run in the background. You will not see any chrome tabs, you only have the console output. To turn it on set to 1, set back to 0 to see the tabs again.
-**tooManyRequestsCooldown**: The amount of seconds to wait after receiving the "Too Many Requests" error. Default is 45 seconds.
-**totalCrownsEarned**: The total amount of crowns this bot has earned you. This will update everytime an account completes its trivias and will persist across multiple uses of the bot.
-**answerDelay**: The amount of seconds to wait before answering each question in a trivia. This can help prevent "Too Many Requests" errors. Default is set to 0.0 seconds
-**tesseractPath**: The Path to your tesseract installation. If you did not install it to "C:\\Program Files\\Tesseract-OCR\\tesseract.exe" like me please change it to your installation path here.
+- **threads**: This is the amount of parallel accounts the bot will do trivia on. Default is 1, I recommend not to go over 2 as you might experience more Too Many Request errors.
+- **headless**: This mode, if turned on, will make chrome run in the background. You will not see any chrome tabs, you only have the console output. To turn it on set to 1, set back to 0 to see the tabs again.
+- **tooManyRequestsCooldown**: The amount of seconds to wait after receiving the "Too Many Requests" error. Default is 45 seconds.
+- **totalCrownsEarned**: The total amount of crowns this bot has earned you. This will update everytime an account completes its trivias and will persist across multiple uses of the bot.
+- **answerDelay**: The amount of seconds to wait before answering each question in a trivia. This can help prevent "Too Many Requests" errors. Default is set to 0.0 seconds
+- **tesseractPath**: The Path to your tesseract installation. If you did not install it to "C:\\Program Files\\Tesseract-OCR\\tesseract.exe" like me please change it to your installation path here.
 
 Restart the bot for the changes to take effect.
 
