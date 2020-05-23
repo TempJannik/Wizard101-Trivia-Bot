@@ -279,19 +279,24 @@ class TriviaBot:
 
     def startChrome(self):
         global headless
-        chrome_options = Options()
-        if headless:
-            chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--log-level=3")
-        chrome_options.add_argument("--enable-automation")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-infobars")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-browser-side-navigation")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        path = os.path.dirname(os.path.realpath(__file__))
-        self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
+        try:
+            chrome_options = Options()
+            if headless:
+                chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--log-level=3")
+            chrome_options.add_argument("--enable-automation")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-infobars")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-browser-side-navigation")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+            path = os.path.dirname(os.path.realpath(__file__))
+            self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
+        except:
+            print("Failed to start Chrome! Your chromedriver version is most likely incompatible. Please see the Github Tutorial on how to get the correct version.")
+            input()
+            exit()
 
     def start(self):
         global accountQueue
@@ -693,7 +698,7 @@ if __name__ == '__main__':
                 f.write("}")
             print("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
             time.sleep(5)
-            exit()  
+            exit()
         
 
     with open(path+"/wordlist.txt") as f:
