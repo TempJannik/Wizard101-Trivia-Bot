@@ -21,6 +21,7 @@ import threading
 import json
 import queue
 import io
+from datetime import datetime
 
 """###
 TODO:
@@ -44,6 +45,11 @@ def isVersionOutdated():
     if newestVersion != version:
         print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version")
         input("Press enter to continue with the old version...")
+
+def printTS(message):
+    now = datetime.now()
+    dt_string = now.strftime("%H:%M:%S")
+    print("["+dt_string+"] " + message)
 
 switcherMagical = {
                 "Zafaria is home to what cultures?":"Gorillas, Zebras, Lions",
@@ -294,7 +300,7 @@ class TriviaBot:
             path = os.path.dirname(os.path.realpath(__file__))
             self.driver = webdriver.Chrome(path+"/chromedriver.exe", options=chrome_options)
         except:
-            print("Failed to start Chrome! Your chromedriver version is most likely incompatible. Please see the Github Tutorial on how to get the correct version.")
+            printTS("Failed to start Chrome! Your chromedriver version is most likely incompatible. Please see the Github Tutorial on how to get the correct version.")
             input()
             exit()
 
@@ -304,16 +310,18 @@ class TriviaBot:
             account = accountQueue.get()
             self.doAccount(account)
 
-        print("\n\nThread Summary\nEarned " + str(self.earnedCrowns)+" crowns on " + str(self.accountsRun) + " accounts.")
+        print("\n\n")
+        printTS("Thread Summary")
+        printTS("Earned " + str(self.earnedCrowns)+" crowns on " + str(self.accountsRun) + " accounts.\n")
         self.driver.quit()
 
     def doAccount(self, account, numAttempts = 1):
         try:
-            print("Starting login for " +account[0])
+            printTS("Starting login for " +account[0])
             self.login(account[0], account[1])
             self.driver.switch_to.default_content()
             while len(self.driver.find_elements_by_xpath("//a[contains(@class, 'logout button orange')]")) == 0:
-                print("Login failed, retrying...")
+                printTS("Login failed, retrying...")
                 self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
                 self.login(account[0], account[1])
                 time.sleep(2)
@@ -330,7 +338,7 @@ class TriviaBot:
             self.doQuiz("Valencia", "https://www.freekigames.com/pirate101-valencia-trivia")
             self.doQuiz("Wizard", "https://www.freekigames.com/wizard101-wizard-city-trivia")
             self.doQuiz("Zafaria", "https://www.freekigames.com/wizard101-zafaria-trivia")
-            print("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+            printTS("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
             updateTotalEarned(self.activeAccountCrowns)
             self.accountsRun = self.accountsRun + 1
             self.driver.get("https://www.freekigames.com/auth/logout/freekigames?redirectUrl=https://www.freekigames.com")
@@ -338,10 +346,10 @@ class TriviaBot:
             self.driver.quit()
             self.startChrome()
             if numAttempts == 3:
-                print("Following Exception occured while trying to complete this account "+account[0]+ ". Skipping account.\n"+str(e))
+                printTS("Following Exception occured while trying to complete this account "+account[0]+ ". Skipping account.\n"+str(e))
                 return
             else:
-                print("Following Exception occured while trying to complete this account "+account[0]+ ". Restarting account.\n"+str(e))
+                printTS("Following Exception occured while trying to complete this account "+account[0]+ ". Restarting account.\n"+str(e))
                 self.doAccount(account, numAttempts = numAttempts+1)
 
     def doQuiz(self, quizName, quizUrl, numAttempts = 1):
@@ -352,14 +360,14 @@ class TriviaBot:
             self.driver.get(quizUrl)
             WebDriverWait(self.driver,10).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Trivia')]")) # I noticed if the internet sucks or the page bugs out, when switching triiva the result is a blank blue page, this ensures the page loaded properly and if not raise an exception forcing a reload
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
-                #print("Not finished, sleeping...")
+                #printTS("Not finished, sleeping...")
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-                    print("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
+                    printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
                     time.sleep(tooManyRequestsCooldown)
                     self.doQuiz(quizName, quizUrl)
                     return
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
-                    print("Quiz throttled, skipping quiz.")
+                    printTS("Quiz throttled, skipping quiz.")
                     return
 
                 while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
@@ -367,13 +375,13 @@ class TriviaBot:
                 self.driver.execute_script("""for (let index = 0; index < 4; index++) { document.getElementsByClassName('answer')[index].style.visibility = "visible"; }""")
                 question = ""
                 while question == "":
-                    #print("Looking for question")
+                    #printTS("Looking for question")
                     question = self.driver.find_element_by_class_name("quizQuestion").text
-                # print("Found question: "+question)
+                # printTS("Found question: "+question)
                 correctAnswer = self.getAnswer(quizName, question)
-                #print("Found answer: "+correctAnswer)
+                #printTS("Found answer: "+correctAnswer)
                 if correctAnswer == "Invalid":
-                    print(question+" was not recognized as a question.")
+                    printTS(question+" was not recognized as a question.")
                     return
 
                 time.sleep(answerDelay)
@@ -406,16 +414,16 @@ class TriviaBot:
                 self.earnedCrowns += 10
                 self.activeAccountCrowns += 10
                 totalCrownsEarned += 10
-                print("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
+                printTS("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
             else:
-                print("Quiz failed, restarting...")
+                printTS("Quiz failed, restarting...")
                 self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
         except Exception as e:
             if numAttempts == 3:
-                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
+                printTS("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
                 return
             else:
-                print("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
+                printTS("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
                 self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
 
     def getAnswer(self, category, question):
@@ -524,7 +532,7 @@ class TriviaBot:
         self.driver.get(self.login_url)
         time.sleep(1.5)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-            print("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
+            printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
             time.sleep(tooManyRequestsCooldown)
             self.login(username, password)
             return
@@ -550,7 +558,7 @@ class TriviaBot:
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'captcha')]")) > 0:
             self.solveCaptcha("//*[contains(text(), 'Login')]")
         else:
-            print("No Captcha! Login successful")
+            printTS("No Captcha! Login successful")
 
     def isYellow(self, color):
         hsv = self.rgb_to_hsv(color[0], color[1], color[2])
@@ -684,7 +692,7 @@ if __name__ == '__main__':
             print("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
             print("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
         except:
-            print("Failed to migrate config, creating new config...")
+            printTS("Failed to migrate config, creating new config...")
             if os.path.exists(path+'/config.txt'):
                 os.remove(path+'/config.txt')
             with open(path+'/config.txt', 'a') as f:
@@ -696,7 +704,7 @@ if __name__ == '__main__':
                 f.write("\"answerDelay\":0.0,\n")
                 f.write("\"tesseractPath\":\"C:\\\Program Files\\\Tesseract-OCR\\\\tesseract.exe\"\n")
                 f.write("}")
-            print("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
+            printTS("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
             time.sleep(5)
             exit()
         
@@ -711,7 +719,7 @@ if __name__ == '__main__':
             data = line.split(':')
             accountQueue.put((data[0], data[1]))
     if accountQueue.empty():
-        print("No accounts found in accounts.txt! Please add accounts to use this bot.")
+        printTS("No accounts found in accounts.txt! Please add accounts to use this bot.")
         time.sleep(5)
         exit()
     accountsLen = accountQueue.qsize()     
@@ -725,5 +733,7 @@ if __name__ == '__main__':
     for x in threads:
         x.join()
 
-    print("\n\nSummary\nEarned " + str(totalCrownsEarned)+" crowns on " + str(accountsLen) + " accounts.")
+    print("\n\n")
+    printTS("Summary")
+    printTS("Earned " + str(totalCrownsEarned)+" crowns on " + str(accountsLen) + " accounts.")
     input("Press enter to quit..")
