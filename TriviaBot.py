@@ -27,11 +27,9 @@ from datetime import datetime
 TODO:
 Wordlist improvements/Captcha image processing improvements - possibly get rid of existing base of wordlist to build a wordlist with exclusively KI captcha words to improve accuracy. Better captchas -> less requests to KI servers -> Less ratelimits
 Work more with WebDriverWaits
-Spells trivia throwing exceptions? Traceback empty?: Message:
-
 ###"""
 
-version = "11"
+version = "12"
 totalCrownsEarned = 0
 headless = False
 tooManyRequestsCooldown = 45
@@ -43,7 +41,7 @@ lock = threading.Lock()
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
     if newestVersion != version:
-        print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version")
+        print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version. Download the newest release and replace the files in your bots folder.")
         input("Press enter to continue with the old version...")
 
 def printTS(message):
@@ -492,7 +490,7 @@ class TriviaBot:
                 btn.click()
                 break
 
-        while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'You must correct')]")) > 0: # Failed captcha
+        while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'You must correct')]")) > 0 or len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Enter the letters and')]")) > 0: # Failed captcha
             currentTry = currentTry + 1
             if currentTry >= retryLimit: #To Prevent getting stuck for whatever reason, add a retry limit, if the captcha isnt solved the following code should have it
                 return
@@ -708,30 +706,45 @@ if __name__ == '__main__':
             time.sleep(5)
             exit()
         
-
-    with open(path+"/wordlist.txt") as f:
-        for line in f:
-            wordList.append(line)
-            wordList.append(line + "s")
-
-    with open(path+"/accounts.txt") as f:
-        for line in f:
-            data = line.split(':')
-            accountQueue.put((data[0], data[1]))
-    if accountQueue.empty():
-        printTS("No accounts found in accounts.txt! Please add accounts to use this bot.")
+    try:
+        with open(path+"/wordlist.txt") as f:
+            for line in f:
+                wordList.append(line)
+                wordList.append(line + "s")
+    except:
+        printTS("There was an error parsing the wordlist.txt file. Please get the newest file from Github.")
         time.sleep(5)
         exit()
-    accountsLen = accountQueue.qsize()     
-    threads = []
-    for i in range(chunksAmount):
-        bot = TriviaBot()
-        t = threading.Thread(target=bot.start)
-        threads.append(t)
-    for x in threads:
-        x.start()
-    for x in threads:
-        x.join()
+
+    try:
+        with open(path+"/accounts.txt") as f:
+            for line in f:
+                data = line.split(':')
+                accountQueue.put((data[0], data[1]))
+        if accountQueue.empty():
+            printTS("No accounts found in accounts.txt! Please add accounts to use this bot.")
+            time.sleep(5)
+            exit()
+    except:
+        printTS("There was an error parsing your accounts.txt, make sure there are no empty lines and each line is in username:password format.")
+        time.sleep(5)
+        exit()
+    accountsLen = accountQueue.qsize()
+
+    try:
+        threads = []
+        for i in range(chunksAmount):
+            bot = TriviaBot()
+            t = threading.Thread(target=bot.start)
+            threads.append(t)
+        for x in threads:
+            x.start()
+        for x in threads:
+            x.join()
+    except:
+        printTS("An outer exception occured. If this happens you've succesfully fucked something that I never thought could be fucked. Congratulations. The bot will terminate now.")
+        time.sleep(10)
+        exit()
 
     print("\n\n")
     printTS("Summary")
