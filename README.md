@@ -72,6 +72,7 @@ If the supplied does not work please do the following:
 5. Profit
 
 ## Changelog
+- May 26th 2020: Added Timestamps (thanks for the suggestion AvengerSpencer#9825), fixed a bug causing captchas to error out, better error handling
 - May 20th 2020: Fixed a variety of bugs/instabilities, accounts will restart instead of skipping on error, account queue implemented, preventing downtime on threads, config migration
 - May 15th 2020: Added proper Config file, crowns tracking
 - May 14th 2020: Retry failed quizzes (Thanks @zisop16)
