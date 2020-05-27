@@ -1,5 +1,11 @@
 # Wizard101-Trivia-Bot
 
+# NO LONGER WORKING
+When I released this I thought it'd help some people do trivias faster than other solutions, what I however did not expect was the amount of people using over 100 accounts daily, ending up causing noticable financial damage to KI to the point of where they changed their captchas.
+**I WILL NOT FIX THE BOT, THERE WILL BE NO MORE UPDATES**
+
+It was fun while it lasted
+
 ## Introduction
 I've seen implementations of these type of bots but I've seen none that allow account switching as well which is why I made this Bot.
 This will allow you to supply your accounts and have them automatically go through the needed quizzes.
