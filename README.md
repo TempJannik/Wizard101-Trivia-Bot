@@ -1,10 +1,20 @@
 # Wizard101-Trivia-Bot
 
-# NO LONGER WORKING
-When I released this I thought it'd help some people do trivias faster than other solutions, what I however did not expect was the amount of people using over 100 accounts daily, ending up causing noticable financial damage to KI to the point of where they changed their captchas.
-**I WILL NOT FIX THE BOT, THERE WILL BE NO MORE UPDATES**
+# UPDATE AUGUST 1ST 2020
+I did not plan to update the bot, but seeing as how people are charging others for a bot that has a built in captcha solver I decided to update mine.
+Shout out to the guy who recommended me the specific captcha solving service (I closed your DM and dont remember your name, if you dm me again I can add credits)
 
-It was fun while it lasted
+# Changes with the captcha
+The usage of this bot is now **no longer free**. To get around the captchas you will have to spend money on a captcha solving service. This bot is configured to work
+with https://capmonster.cloud/ . To use this bot, create an account on capmonster, load up funds onto your account ($2 is the minimum) and set your API Key in the config.txt file.
+
+Capmonster charges $0.6 per 1000 Captchas. That means in theory $0.6 for 1000 Trivias or 10000 Crowns. Due to their error rate however you can assume the total
+will be more around $0.8-$1.0 per 1000 Captchas. 
+
+Recaptchas also take longer to solve, it can be anywhere from a couple seconds to three minutes for each. Keep this in mind.
+
+**I will not take responsibility for any investment you make, spend money at your own risk!**
+
 
 ## Introduction
 I've seen implementations of these type of bots but I've seen none that allow account switching as well which is why I made this Bot.
@@ -21,7 +31,7 @@ To use this you have 2 choices, with or without Python. Using python is better f
 
 ## Features
 - Solve Trivia
-- Solve Captcha
+- Solve Recaptchas
 - Switch/Log in to Accounts
 - Solve Trivias on multiple accounts at the same time
 - Run "invisible" in background
@@ -31,6 +41,7 @@ After the bot starts for the first time it will generate a **config.txt** file. 
 Available settings:
 - **threads**: This is the amount of parallel accounts the bot will do trivia on. Default is 1, I recommend not to go over 2 as you might experience more Too Many Request errors.
 - **headless**: This mode, if turned on, will make chrome run in the background. You will not see any chrome tabs, you only have the console output. To turn it on set to 1, set back to 0 to see the tabs again.
+- **smartwait**: This is an evasion method for the Too many requests error. Most of the time used by the bot is waiting for captchas to complete. So the most request-intensive action, the answering of questions will be limited to 1 thread at a time. When that thread is done and waiting for a captcha solve the next thread will continue. 
 - **tooManyRequestsCooldown**: The amount of seconds to wait after receiving the "Too Many Requests" error. Default is 45 seconds.
 - **totalCrownsEarned**: The total amount of crowns this bot has earned you. This will update everytime an account completes its trivias and will persist across multiple uses of the bot.
 - **answerDelay**: The amount of seconds to wait before answering each question in a trivia. This can help prevent "Too Many Requests" errors. Default is set to 0.0 seconds
@@ -40,8 +51,7 @@ Restart the bot for the changes to take effect.
 
 ## Installation without Python
 1. Download the release.zip from the [Releases section](https://github.com/TempJannik/Wizard101-Trivia-Bot/releases) and extract the contents into a new folder.
-2. Tesseract 5 - **Make sure to install it under C:\Program Files\Tesseract-OCR** https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-v5.0.0-alpha.20200328.exe
-3. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
+2. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
 If the supplied does not work please do the following:
 - First, find out which version of Chrome you are using. Let's say you have Chrome 72.0.3626.81, you can do this in your Settings -> About Chrome.
 - Take the Chrome version number, remove the last part, and append the result to URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_". For example, with Chrome version 72.0.3626.81, you'd get a URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_72.0.3626".
@@ -51,9 +61,10 @@ If the supplied does not work please do the following:
 
 ## Usage without Python
 1. Open accounts.txt and enter your account information in **username:password** format, one account per line
-2. Start the bot with by **double clicking TriviaBot.exe**
-3. ???
-4. Profit
+2. Configure your config.txt
+3. Start the bot with by **double clicking TriviaBot.exe**
+4. ???
+5. Profit
 
 ## Installation with Python
 1. Download the repository by clicking on the green Clone or Download button on the Top Right, then click Download as ZIP.
@@ -61,8 +72,7 @@ If the supplied does not work please do the following:
 3. Python 3.6.4 - **Make sure to Check the "Add to PATH" box in the installation!** Other versions might work as well but this is the version developement was made on. https://www.python.org/downloads/release/python-364/
 4. Open cmd (Type Command Prompt in the windows search) and type **cd "YOUR PROJECT PATH HERE"** for example **cd "C:\Users\Jannik\source\repos\TriviaBot"**
 5. Now type **pip install -r requirements.txt**
-6. Tesseract 5 - **Make sure to install it under C:\Program Files\Tesseract-OCR** https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-v5.0.0-alpha.20200328.exe
-7. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
+6. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
 If the supplied does not work please do the following:
 - First, find out which version of Chrome you are using. Let's say you have Chrome 72.0.3626.81, you can do this in your Settings -> About Chrome.
 - Take the Chrome version number, remove the last part, and append the result to URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_". For example, with Chrome version 72.0.3626.81, you'd get a URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_72.0.3626".
@@ -72,10 +82,11 @@ If the supplied does not work please do the following:
 
 ## Usage with Python
 1. Open accounts.txt and enter your account information in **username:password** format, one account per line
-2. Open cmd (Type Command Prompt in the windows search) and type **cd "YOUR PROJECT PATH HERE"** for example **cd "C:\Users\Jannik\source\repos\TriviaBot"**
-3. Start the bot with **python TriviaBot.py**
-4. ???
-5. Profit
+2. Configure your config.txt
+3. Open cmd (Type Command Prompt in the windows search) and type **cd "YOUR PROJECT PATH HERE"** for example **cd "C:\Users\Jannik\source\repos\TriviaBot"**
+4. Start the bot with **python TriviaBot.py**
+5. ???
+6. Profit
 
 ## Changelog
 - May 26th 2020: Added Timestamps (thanks for the suggestion AvengerSpencer#9825), fixed a bug causing captchas to error out, better error handling

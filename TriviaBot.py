@@ -6,7 +6,6 @@ import colorsys
 import sys
 import math
 import difflib
-import pytesseract as tess
 from urllib.request import urlopen
 from utility_methods.utility_methods import *
 from selenium import webdriver
@@ -26,6 +25,7 @@ from datetime import datetime
 
 version = "13"
 totalCrownsEarned = 0
+smartwait = 1
 headless = False
 tooManyRequestsCooldown = 45
 answerDelay = 0.0
@@ -33,6 +33,7 @@ captchasRequest = 0
 captchasFailed = 0
 accountQueue = queue.Queue()
 lock = threading.Lock()
+triviaLock = threading.Lock()
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -357,6 +358,8 @@ class TriviaBot:
         global tooManyRequestsCooldown
         global answerDelay
         try:
+            if smartwait:
+                triviaLock.acquire()
             self.driver.get(quizUrl)
             WebDriverWait(self.driver,10).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Trivia')]")) # I noticed if the internet sucks or the page bugs out, when switching triiva the result is a blank blue page, this ensures the page loaded properly and if not raise an exception forcing a reload
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
@@ -365,9 +368,13 @@ class TriviaBot:
                     printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
                     time.sleep(tooManyRequestsCooldown)
                     self.doQuiz(quizName, quizUrl)
+                    if smartwait:
+                        triviaLock.release()
                     return
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
                     printTS("Quiz throttled, skipping quiz.")
+                    if smartwait:
+                        triviaLock.release()
                     return
                 while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
                     time.sleep(0.01)
@@ -381,6 +388,8 @@ class TriviaBot:
                 #printTS("Found answer: "+correctAnswer)
                 if correctAnswer == "Invalid":
                     printTS(question+" was not recognized as a question.")
+                    if smartwait:
+                        triviaLock.release()
                     return
 
                 time.sleep(answerDelay)
@@ -401,6 +410,8 @@ class TriviaBot:
                     }""", correctAnswer)
                 time.sleep(0.5)
             
+            if smartwait:
+                triviaLock.release()
             self.driver.find_element_by_xpath("//a[contains(@class, 'kiaccountsbuttongreen')]").click()
             printTS("Clicking")
             WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.XPATH,"//iframe"))
@@ -589,13 +600,14 @@ if __name__ == '__main__':
         api_key = data["api_key"]
         headless = data["headless"]
         chunksAmount = data["threads"]
+        smartwait = data["smartwait"]
         tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
         crownsEarned = data["totalCrownsEarned"]
         answerDelay = data["answerDelay"]
-        tess.pytesseract.tesseract_cmd = data["tesseractPath"]
         printTS("Settings loaded:")
         printTS("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
         printTS("Threads (parallel sessions): "+str(chunksAmount))
+        printTS("Smart Wait: "+("On" if smartwait == 1 else "Off"))
         printTS("Delay after Answer: "+str(answerDelay))
         printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
         printTS("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
@@ -607,10 +619,10 @@ if __name__ == '__main__':
 
             api_key = data["api_key"]
             headless = data["headless"]
+            smartwait = data["smartwait"]
             chunksAmount = data["threads"]
             tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
             crownsEarned = data["totalCrownsEarned"]
-            tess.pytesseract.tesseract_cmd = data["tesseractPath"]
             data["answerDelay"] = 0.0
             answerDelay = data["answerDelay"]
 
@@ -622,6 +634,7 @@ if __name__ == '__main__':
             printTS("Settings loaded:")
             printTS("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
             printTS("Threads (parallel sessions): "+str(chunksAmount))
+            printTS("Smart Wait: "+("On" if smartwait == 1 else "Off"))
             printTS("Delay after Answer: "+str(answerDelay))
             printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
             printTS("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
@@ -633,17 +646,17 @@ if __name__ == '__main__':
                 f.write("{\n")
                 f.write("\"api_key\":\"PUTKEYHERE\",\n")
                 f.write("\"threads\":1,\n")
+                f.write("\"smartwait\":1,\n")
                 f.write("\"headless\":0,\n")
                 f.write("\"tooManyRequestsCooldown\":45,\n")
                 f.write("\"totalCrownsEarned\":0,\n")
                 f.write("\"answerDelay\":0.0,\n")
-                f.write("\"tesseractPath\":\"C:\\\Program Files\\\Tesseract-OCR\\\\tesseract.exe\"\n")
                 f.write("}")
             printTS("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
             time.sleep(5)
             exit()
 
-    if api_key is "PUTKEYHERE":
+    if api_key == "PUTKEYHERE":
         printTS("Please set your API key from https://capmonster.cloud/ in the config.txt file.")
         time.sleep(5)
         exit()
