@@ -19,7 +19,7 @@ import io
 import requests
 from datetime import datetime
 
-version = "13"
+version = "14"
 totalCrownsEarned = 0
 smartwait = 1
 smartwaitthreads = 1
