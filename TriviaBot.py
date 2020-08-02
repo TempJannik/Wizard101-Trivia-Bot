@@ -23,17 +23,23 @@ import io
 import requests
 from datetime import datetime
 
-version = "13"
+version = "14"
 totalCrownsEarned = 0
 smartwait = 1
 headless = False
 tooManyRequestsCooldown = 45
 answerDelay = 0.0
-captchasRequest = 0
-captchasFailed = 0
 accountQueue = queue.Queue()
 lock = threading.Lock()
 triviaLock = threading.Lock()
+
+#statistics variables
+captchasRequest = 0
+captchasFailed = 0
+captchasRequestSeconds = 0
+captchasFailedSeconds = 0
+captchasSuccessSeconds = 0
+totalTimeSeconds = 0
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
@@ -317,7 +323,9 @@ class TriviaBot:
         self.driver.quit()
 
     def doAccount(self, account, numAttempts = 1):
+        global totalTimeSeconds
         try:
+            startAccount = time.time()
             printTS("Starting login for " +account[0])
             self.login(account[0], account[1])
             self.driver.switch_to.default_content()
@@ -340,6 +348,9 @@ class TriviaBot:
             self.doQuiz("Wizard", "https://www.wizard101.com/quiz/trivia/game/wizard101-wizard-city-trivia")
             self.doQuiz("Zafaria", "https://www.wizard101.com/quiz/trivia/game/wizard101-zafaria-trivia")
             printTS("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+            accountElapsed = time.time() - startAccount
+            printTS("Account took "+str(accountElapsed)+"s to complete.")
+            totalTimeSeconds = totalTimeSeconds + accountElapsed
             updateTotalEarned(self.activeAccountCrowns)
             self.accountsRun = self.accountsRun + 1
             self.driver.get("https://www.wizard101.com/auth/logout/freekigames?redirectUrl=https://www.wizard101.com/game/")
@@ -413,7 +424,7 @@ class TriviaBot:
             if smartwait:
                 triviaLock.release()
             self.driver.find_element_by_xpath("//a[contains(@class, 'kiaccountsbuttongreen')]").click()
-            printTS("Clicking")
+            #printTS("Clicking")
             WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.XPATH,"//iframe"))
             iframe = self.driver.find_element_by_xpath("//iframe")
             self.driver.switch_to.frame(iframe)
@@ -503,6 +514,19 @@ class TriviaBot:
     def solveInvisibleCaptcha(self, attempts = 0):
         global captchasRequest
         global captchasFailed
+        global captchasRequestSeconds
+        global captchasFailedSeconds
+        global captchasSuccessSeconds
+
+        self.driver.find_element(By.XPATH,"//*[contains(text(), 'Claim Your Reward')]").click()
+        time.sleep(2)
+        if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Transferrable Crowns')]")) != 0:
+            printTS("Skipped Captcha successfully")
+            return True
+        startTotal = time.time()
+        startFailed = time.time()
+        startSuccess = time.time()
+
         if attempts == 6:
             return False
         captchasRequest = captchasRequest + 1
@@ -525,22 +549,33 @@ class TriviaBot:
         #printTS("Finished Captcha Task, key: "+str(resultKey))
         
         self.driver.execute_script("reCaptchaCallback('{}');".format(resultKey))
-        printTS("Submitting Captcha")
         time.sleep(2)
+        captchasRequestSeconds = captchasRequestSeconds + (time.time() - startTotal)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'There was an error')]")) > 0: #Captcha validation failed
-            printTS("Captcha failed!")
+            captchasFailedSeconds = captchasFailedSeconds + (time.time() - startFailed)
+            printTS("Failed captcha took "+str(time.time() - startFailed)+"s")
             captchasFailed = captchasFailed + 1
-            return self.solveInvisibleCaptcha(attempts + 1)       
+            return self.solveInvisibleCaptcha(attempts + 1)
         else:
+            printTS("Successful captcha took "+str(time.time() - startSuccess)+"s")
+            captchasSuccessSeconds = captchasSuccessSeconds + (time.time() - startSuccess)
             return True
     
     def solveVisibleCaptcha(self, submitBtnId, attempts = 0):
         global captchasRequest
         global captchasFailed
+        global captchasRequestSeconds
+        global captchasFailedSeconds
+        global captchasSuccessSeconds
+
+        startTotal = time.time()
+        startFailed = time.time()
+        startSuccess = time.time()
+
         if attempts == 6:
             return False
         captchasRequest = captchasRequest + 1
-        site_key = "6Ld7GE0UAAAAALWZbnuhqYTBkobv6Whzl7256dQt"#self.driver.find_element_by_id("recaptcha-token").get_attribute("value")
+        site_key = "6Ld7GE0UAAAAALWZbnuhqYTBkobv6Whzl7256dQt" #self.driver.find_element_by_id("recaptcha-token").get_attribute("value")
         printTS("Starting Captcha Task")
         response = requests.post('https://api.capmonster.cloud/createTask', json={'clientKey': api_key, 'task': {'type':'NoCaptchaTaskProxyless', "websiteURL":"https://www.wizard101.com","websiteKey":site_key, 'userAgent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36'} }).json()
         taskId = response["taskId"]
@@ -566,11 +601,15 @@ class TriviaBot:
                 btn.click()
                 break
         time.sleep(2)
-
+        captchasRequestSeconds = captchasRequestSeconds + (time.time() - startTotal)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'There was an error')]")) > 0: #Captcha validation failed
-            return self.solveVisibleCaptcha(submitBtnId, attempts + 1)
+            captchasFailedSeconds = captchasFailedSeconds + (time.time() - startFailed)
+            printTS("Failed captcha took "+str(time.time() - startFailed)+"s")
             captchasFailed = captchasFailed + 1
+            return self.solveVisibleCaptcha(submitBtnId, attempts + 1)
         else:
+            printTS("Successful captcha took "+str(time.time() - startSuccess)+"s")
+            captchasSuccessSeconds = captchasSuccessSeconds + (time.time() - startSuccess)
             return True
 
 def updateTotalEarned(amountToAdd):
@@ -585,12 +624,11 @@ def updateTotalEarned(amountToAdd):
 
 if __name__ == '__main__':
     print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
-    print("--------  Gremlin Property - Test Build  --------\n\n")
     print("--------      Made with love by Tox     --------\n\n")
     print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
     print("To change your settings navigate to the config.txt file and change the value to your desires")
     print("To add accounts create a new line in accounts.txt in the username:password format")
-    #isVersionOutdated()
+    isVersionOutdated()
 
     path = os.path.dirname(os.path.realpath(__file__))
     try:
@@ -650,7 +688,7 @@ if __name__ == '__main__':
                 f.write("\"headless\":0,\n")
                 f.write("\"tooManyRequestsCooldown\":45,\n")
                 f.write("\"totalCrownsEarned\":0,\n")
-                f.write("\"answerDelay\":0.0,\n")
+                f.write("\"answerDelay\":0.0\n")
                 f.write("}")
             printTS("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
             time.sleep(5)
@@ -683,9 +721,8 @@ if __name__ == '__main__':
         for i in range(chunksAmount):
             bot = TriviaBot()
             t = threading.Thread(target=bot.start)
+            t.start()
             threads.append(t)
-        for x in threads:
-            x.start()
         for x in threads:
             x.join()
     except:
@@ -700,5 +737,9 @@ if __name__ == '__main__':
     printTS("Captcha Balance after Trivia:  $"+str(requests.post('https://api.capmonster.cloud/getBalance', json={'clientKey': api_key}).json()["balance"]))
     printTS("Captchas requested: "+str(captchasRequest))
     printTS("Captchas failed: "+str(captchasFailed))
-
+    printTS("Average time per account: "+str(round(totalTimeSeconds/accountsLen, 2))+"s")
+    printTS("Average time per account (thread adjusted): "+str(round((totalTimeSeconds/accountsLen)/chunksAmount, 2))+"s")
+    printTS("Average time per captcha: "+str(round(captchasRequestSeconds/captchasRequest, 2))+"s")
+    printTS("Average time per successful captcha: "+str(round(captchasSuccessSeconds/(captchasRequest-captchasFailed),2))+"s")
+    printTS("Average time per failed captcha: "+str(round(captchasFailedSeconds/captchasFailed,2))+"s")
     input("Press enter to quit..")
