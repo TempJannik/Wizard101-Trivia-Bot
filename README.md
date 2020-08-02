@@ -5,13 +5,12 @@ I did not plan to update the bot, but seeing as how people are charging others f
 Shout out to the guy who recommended me the specific captcha solving service (I closed your DM and dont remember your name, if you dm me again I can add credits)
 
 # Changes with the captcha
-The usage of this bot is now **no longer free**. To get around the captchas you will have to spend money on a captcha solving service. This bot is configured to work
-with https://capmonster.cloud/ . To use this bot, create an account on capmonster, load up funds onto your account ($2 is the minimum) and set your API Key in the config.txt file.
+The usage of this bot is now **no longer free**. To get around the captchas you will have to spend money on a captcha solving service. This bot is configured to work with https://capmonster.cloud/ . To use this bot, create an account on capmonster, load up funds onto your account ($2 is the minimum) and set your API Key in the config.txt file.
 
-Capmonster charges $0.6 per 1000 Captchas. That means in theory $0.6 for 1000 Trivias or 10000 Crowns. Due to their error rate however you can assume the total
-will be more around $0.8-$1.0 per 1000 Captchas. 
+Capmonster charges $0.6 per 1000 Captchas. That means in theory $0.6 for 1000 Trivias or 10000 Crowns. Due to their error rate however you can assume the total will be more around $0.8-$1.0 per 1000 Captchas. 
 
 Recaptchas also take longer to solve, it can be anywhere from a couple seconds to three minutes for each. Keep this in mind.
+On the last test runs, running 10 accounts (100 trivias) would take around 25 minutes (2m 30s per account) with the default settings. You might be able to get better results messing around with the settings.
 
 **I will not take responsibility for any investment you make, spend money at your own risk!**
 
@@ -42,10 +41,10 @@ Available settings:
 - **threads**: This is the amount of parallel accounts the bot will do trivia on. Default is 1, I recommend not to go over 2 as you might experience more Too Many Request errors.
 - **headless**: This mode, if turned on, will make chrome run in the background. You will not see any chrome tabs, you only have the console output. To turn it on set to 1, set back to 0 to see the tabs again.
 - **smartwait**: This is an evasion method for the Too many requests error. Most of the time used by the bot is waiting for captchas to complete. So the most request-intensive action, the answering of questions will be limited to 1 thread at a time. When that thread is done and waiting for a captcha solve the next thread will continue. 
+- **smartwaitthreads**: The amount of parallel threads on which the bot will answer questions. If going above 1 it is recommended to up your answerDelay to prevent too many requests error.
 - **tooManyRequestsCooldown**: The amount of seconds to wait after receiving the "Too Many Requests" error. Default is 45 seconds.
 - **totalCrownsEarned**: The total amount of crowns this bot has earned you. This will update everytime an account completes its trivias and will persist across multiple uses of the bot.
 - **answerDelay**: The amount of seconds to wait before answering each question in a trivia. This can help prevent "Too Many Requests" errors. Default is set to 0.0 seconds
-- **tesseractPath**: The Path to your tesseract installation. If you did not install it to "C:\\Program Files\\Tesseract-OCR\\tesseract.exe" like me please change it to your installation path here.
 
 Restart the bot for the changes to take effect.
 
@@ -89,6 +88,7 @@ If the supplied does not work please do the following:
 6. Profit
 
 ## Changelog
+- August 2nd 2020: Added Recaptcha support
 - May 26th 2020: Added Timestamps (thanks for the suggestion AvengerSpencer#9825), fixed a bug causing captchas to error out, better error handling
 - May 20th 2020: Fixed a variety of bugs/instabilities, accounts will restart instead of skipping on error, account queue implemented, preventing downtime on threads, config migration
 - May 15th 2020: Added proper Config file, crowns tracking

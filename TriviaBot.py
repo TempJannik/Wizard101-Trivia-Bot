@@ -1,18 +1,14 @@
+#If you are for whatever reason reading this code... I'm sorry, run while you can.
+
 import time
 import urllib.request
 import os
-import base64
-import colorsys
 import sys
 import math
-import difflib
 from urllib.request import urlopen
 from utility_methods.utility_methods import *
 from selenium import webdriver
 from functools import reduce
-from PIL import Image
-from PIL import ImageGrab
-from pytesseract import Output
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -23,15 +19,16 @@ import io
 import requests
 from datetime import datetime
 
-version = "14"
+version = "13"
 totalCrownsEarned = 0
 smartwait = 1
+smartwaitthreads = 1
 headless = False
 tooManyRequestsCooldown = 45
 answerDelay = 0.0
 accountQueue = queue.Queue()
 lock = threading.Lock()
-triviaLock = threading.Lock()
+sessionsRunning = 0
 
 #statistics variables
 captchasRequest = 0
@@ -43,14 +40,14 @@ totalTimeSeconds = 0
 
 def isVersionOutdated():
     newestVersion = urlopen("https://raw.githubusercontent.com/TempJannik/Wizard101-Trivia-Bot/master/version.txt").read().decode('utf-8')
-    if newestVersion != version:
+    if newestVersion.replace("\n","") != version:
         print("Your Bot seems to be outdated. Please visit https://github.com/TempJannik/Wizard101-Trivia-Bot for the newest version. Download the newest release and replace the files in your bots folder.")
         input("Press enter to continue with the old version...")
 
-def printTS(message):
+def printTS(message, account = "Global"):
     now = datetime.now()
     dt_string = now.strftime("%H:%M:%S")
-    print("["+dt_string+"] " + message)
+    print("["+dt_string+"] ["+account+"] " + message)
     lock.acquire() # Aquire lock to prevent other threads opening the file while its being messed with
     path = os.path.dirname(os.path.realpath(__file__))
     with open(path+'/log.txt', 'a') as f:
@@ -326,11 +323,12 @@ class TriviaBot:
         global totalTimeSeconds
         try:
             startAccount = time.time()
-            printTS("Starting login for " +account[0])
+            self.activeAccount = account[0]
+            printTS("Starting login for " +account[0], self.activeAccount)
             self.login(account[0], account[1])
             self.driver.switch_to.default_content()
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Logout')]")) == 0:
-                printTS("Login failed, retrying...")
+                printTS("Login failed, retrying...", self.activeAccount)
                 self.driver.get("https://www.wizard101.com/auth/logout/freekigames?redirectUrl=https://www.wizard101.com/game/")
                 self.login(account[0], account[1])
                 time.sleep(2)
@@ -347,9 +345,9 @@ class TriviaBot:
             self.doQuiz("Valencia", "https://www.wizard101.com/quiz/trivia/game/pirate101-valencia-trivia")
             self.doQuiz("Wizard", "https://www.wizard101.com/quiz/trivia/game/wizard101-wizard-city-trivia")
             self.doQuiz("Zafaria", "https://www.wizard101.com/quiz/trivia/game/wizard101-zafaria-trivia")
-            printTS("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount)
+            printTS("Earned a total of " + str(self.activeAccountCrowns) + " crowns on account: " + self.activeAccount, self.activeAccount)
             accountElapsed = time.time() - startAccount
-            printTS("Account took "+str(accountElapsed)+"s to complete.")
+            printTS("Account took "+str(accountElapsed)+"s to complete.", self.activeAccount)
             totalTimeSeconds = totalTimeSeconds + accountElapsed
             updateTotalEarned(self.activeAccountCrowns)
             self.accountsRun = self.accountsRun + 1
@@ -358,34 +356,39 @@ class TriviaBot:
             self.driver.quit()
             self.startChrome()
             if numAttempts == 3:
-                printTS("Following Exception occured while trying to complete this account "+account[0]+ ". Skipping account.\n"+str(e))
+                printTS("Following Exception occured while trying to complete this account "+account[0]+ ". Skipping account.\n"+str(e), self.activeAccount)
                 return
             else:
-                printTS("Following Exception occured while trying to complete this account "+account[0]+ ". Restarting account.\n"+str(e))
+                printTS("Following Exception occured while trying to complete this account "+account[0]+ ". Restarting account.\n"+str(e), self.activeAccount)
                 self.doAccount(account, numAttempts = numAttempts+1)
 
     def doQuiz(self, quizName, quizUrl, numAttempts = 1):
         global totalCrownsEarned
         global tooManyRequestsCooldown
         global answerDelay
+        global sessionsRunning
+        global smartwaitthreads
+
         try:
             if smartwait:
-                triviaLock.acquire()
+                while sessionsRunning == smartwaitthreads:
+                    time.sleep(0.01)
+                sessionsRunning = sessionsRunning + 1
             self.driver.get(quizUrl)
             WebDriverWait(self.driver,10).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Trivia')]")) # I noticed if the internet sucks or the page bugs out, when switching triiva the result is a blank blue page, this ensures the page loaded properly and if not raise an exception forcing a reload
             while len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU PASSED THE')]")) == 0 and len(self.driver.find_elements_by_xpath("//*[contains(text(), 'YOU FINISHED THE')]")) == 0:
                 #printTS("Not finished, sleeping...")
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-                    printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
+                    printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.", self.activeAccount)
                     time.sleep(tooManyRequestsCooldown)
                     self.doQuiz(quizName, quizUrl)
                     if smartwait:
-                        triviaLock.release()
+                        sessionsRunning = sessionsRunning - 1
                     return
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
-                    printTS("Quiz throttled, skipping quiz.")
+                    printTS("Quiz throttled, skipping quiz.", self.activeAccount)
                     if smartwait:
-                        triviaLock.release()
+                        sessionsRunning = sessionsRunning - 1
                     return
                 while len(self.driver.find_elements_by_class_name("quizQuestion")) == 0:
                     time.sleep(0.01)
@@ -398,9 +401,9 @@ class TriviaBot:
                 correctAnswer = self.getAnswer(quizName, question)
                 #printTS("Found answer: "+correctAnswer)
                 if correctAnswer == "Invalid":
-                    printTS(question+" was not recognized as a question.")
+                    printTS(question+" was not recognized as a question.", self.activeAccount)
                     if smartwait:
-                        triviaLock.release()
+                        sessionsRunning = sessionsRunning - 1
                     return
 
                 time.sleep(answerDelay)
@@ -422,7 +425,7 @@ class TriviaBot:
                 time.sleep(0.5)
             
             if smartwait:
-                triviaLock.release()
+                sessionsRunning = sessionsRunning - 1
             self.driver.find_element_by_xpath("//a[contains(@class, 'kiaccountsbuttongreen')]").click()
             #printTS("Clicking")
             WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.XPATH,"//iframe"))
@@ -430,22 +433,24 @@ class TriviaBot:
             self.driver.switch_to.frame(iframe)
             self.solveInvisibleCaptcha()
             self.driver.switch_to.default_content()
-            printTS("Waiting for end text")
+            printTS("Waiting for result", self.activeAccount)
             WebDriverWait(self.driver,5).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Transferrable Crowns')]") or self.driver.find_elements(By.XPATH,"//*[contains(text(), 'Better luck next time!')]"))
             if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Transferrable Crowns')]")) != 0:
                 self.earnedCrowns += 10
                 self.activeAccountCrowns += 10
                 totalCrownsEarned += 10
-                printTS("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName)
+                printTS("Earned 10 Crowns on Account "+self.activeAccount+" with Quiz: "+quizName, self.activeAccount)
             else:
-                printTS("Quiz failed, restarting...")
+                printTS("Quiz failed, restarting...", self.activeAccount)
                 self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
         except Exception as e:
+            if smartwait:
+                sessionsRunning = sessionsRunning - 1
             if numAttempts == 3:
-                printTS("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e))
+                printTS("Following Exception occured while trying to complete the "+quizName+ " quiz. Skipping quiz.\n"+str(e), self.activeAccount)
                 return
             else:
-                printTS("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e))
+                printTS("Following Exception occured while trying to complete the "+quizName+ " quiz. Restarting quiz.\n"+str(e), self.activeAccount)
                 self.doQuiz(quizName, quizUrl, numAttempts = numAttempts+1)
 
     def getAnswer(self, category, question):
@@ -486,7 +491,7 @@ class TriviaBot:
         self.driver.get(self.login_url)
         time.sleep(1.5)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
-            printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.")
+            printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.", self.activeAccount)
             time.sleep(tooManyRequestsCooldown)
             self.login(username, password)
             return
@@ -508,7 +513,7 @@ class TriviaBot:
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Please prove you are not a robot.')]")) > 0:
             self.solveVisibleCaptcha("bp_login")
         else:
-            printTS("No Captcha! Login successful")
+            printTS("No Captcha! Login successful", self.activeAccount)
         self.driver.switch_to.default_content()
 
     def solveInvisibleCaptcha(self, attempts = 0):
@@ -518,23 +523,18 @@ class TriviaBot:
         global captchasFailedSeconds
         global captchasSuccessSeconds
 
-        self.driver.find_element(By.XPATH,"//*[contains(text(), 'Claim Your Reward')]").click()
-        time.sleep(2)
-        if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Transferrable Crowns')]")) != 0:
-            printTS("Skipped Captcha successfully")
-            return True
         startTotal = time.time()
         startFailed = time.time()
         startSuccess = time.time()
 
-        if attempts == 6:
-            return False
+        if attempts > 2:
+            time.sleep(5) #On fail loop give it some time
         captchasRequest = captchasRequest + 1
         site_key = self.driver.find_element_by_class_name("g-recaptcha").get_attribute("data-sitekey")        
         #printTS("Starting Captcha Task")
         response = requests.post('https://api.capmonster.cloud/createTask', json={'clientKey': api_key, 'task': {'type':'NoCaptchaTaskProxyless', "websiteURL":"https://www.wizard101.com","websiteKey":site_key, 'userAgent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36'} }).json()
         taskId = response["taskId"]
-        printTS("Sent captcha to CapMonster, returned task ID: "+str(taskId))
+        printTS("Sent captcha to CapMonster, returned task ID: "+str(taskId), self.activeAccount)
         finished = False
         resultKey = ""
         while not finished:
@@ -553,11 +553,11 @@ class TriviaBot:
         captchasRequestSeconds = captchasRequestSeconds + (time.time() - startTotal)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'There was an error')]")) > 0: #Captcha validation failed
             captchasFailedSeconds = captchasFailedSeconds + (time.time() - startFailed)
-            printTS("Failed captcha took "+str(time.time() - startFailed)+"s")
+            printTS("Failed captcha took "+str(round(time.time() - startFailed, 2))+"s", self.activeAccount)
             captchasFailed = captchasFailed + 1
             return self.solveInvisibleCaptcha(attempts + 1)
         else:
-            printTS("Successful captcha took "+str(time.time() - startSuccess)+"s")
+            printTS("Successful captcha took "+str(round(time.time() - startSuccess, 2))+"s", self.activeAccount)
             captchasSuccessSeconds = captchasSuccessSeconds + (time.time() - startSuccess)
             return True
     
@@ -579,7 +579,7 @@ class TriviaBot:
         printTS("Starting Captcha Task")
         response = requests.post('https://api.capmonster.cloud/createTask', json={'clientKey': api_key, 'task': {'type':'NoCaptchaTaskProxyless', "websiteURL":"https://www.wizard101.com","websiteKey":site_key, 'userAgent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36'} }).json()
         taskId = response["taskId"]
-        printTS("Sent captcha to CapMonster, returned task ID: "+str(taskId))
+        printTS("Sent captcha to CapMonster, returned task ID: "+str(taskId), self.activeAccount)
         finished = False
         resultKey = ""
         while not finished:
@@ -604,11 +604,11 @@ class TriviaBot:
         captchasRequestSeconds = captchasRequestSeconds + (time.time() - startTotal)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'There was an error')]")) > 0: #Captcha validation failed
             captchasFailedSeconds = captchasFailedSeconds + (time.time() - startFailed)
-            printTS("Failed captcha took "+str(time.time() - startFailed)+"s")
+            printTS("Failed captcha took "+str(round(time.time() - startFailed, 2))+"s", self.activeAccount)
             captchasFailed = captchasFailed + 1
             return self.solveVisibleCaptcha(submitBtnId, attempts + 1)
         else:
-            printTS("Successful captcha took "+str(time.time() - startSuccess)+"s")
+            printTS("Successful captcha took "+str(round(time.time() - startSuccess, 2))+"s", self.activeAccount)
             captchasSuccessSeconds = captchasSuccessSeconds + (time.time() - startSuccess)
             return True
 
@@ -623,8 +623,8 @@ def updateTotalEarned(amountToAdd):
     lock.release()
 
 if __name__ == '__main__':
-    print("--------  Wizard101 Trivia Bot v"+version+" --------\n\n")
-    print("--------      Made with love by Tox     --------\n\n")
+    print("--------  Wizard101 Trivia Bot v"+version+" --------")
+    print("--------   Made with love by Tox   --------\n\n")
     print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
     print("To change your settings navigate to the config.txt file and change the value to your desires")
     print("To add accounts create a new line in accounts.txt in the username:password format")
@@ -639,6 +639,7 @@ if __name__ == '__main__':
         headless = data["headless"]
         chunksAmount = data["threads"]
         smartwait = data["smartwait"]
+        smartwaitthreads = data["smartwaitthreads"]
         tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
         crownsEarned = data["totalCrownsEarned"]
         answerDelay = data["answerDelay"]
@@ -646,9 +647,10 @@ if __name__ == '__main__':
         printTS("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
         printTS("Threads (parallel sessions): "+str(chunksAmount))
         printTS("Smart Wait: "+("On" if smartwait == 1 else "Off"))
+        printTS("Smart Wait Threads: "+str(smartwaitthreads))
         printTS("Delay after Answer: "+str(answerDelay))
-        printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
-        printTS("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
+        printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown)+"\n\n")
+        printTS("Total Crowns earned: "+str(crownsEarned)+"\n")
     except:
         # First try loading old config, if success: make new config with old config settings + changes -> Config migration for new configs
         try:
@@ -658,6 +660,7 @@ if __name__ == '__main__':
             api_key = data["api_key"]
             headless = data["headless"]
             smartwait = data["smartwait"]
+            smartwaitthreads = data["smartwaitthreads"]
             chunksAmount = data["threads"]
             tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
             crownsEarned = data["totalCrownsEarned"]
@@ -673,9 +676,10 @@ if __name__ == '__main__':
             printTS("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
             printTS("Threads (parallel sessions): "+str(chunksAmount))
             printTS("Smart Wait: "+("On" if smartwait == 1 else "Off"))
+            printTS("Smart Wait Threads: "+str(smartwaitthreads))
             printTS("Delay after Answer: "+str(answerDelay))
-            printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown))
-            printTS("\n\nTotal Crowns earned: "+str(crownsEarned)+"\n")
+            printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown)+"\n\n")
+            printTS("Total Crowns earned: "+str(crownsEarned)+"\n")
         except:
             printTS("Failed to migrate config, creating new config...")
             if os.path.exists(path+'/config.txt'):
@@ -683,10 +687,11 @@ if __name__ == '__main__':
             with open(path+'/config.txt', 'a') as f:
                 f.write("{\n")
                 f.write("\"api_key\":\"PUTKEYHERE\",\n")
-                f.write("\"threads\":1,\n")
+                f.write("\"threads\":5,\n")
                 f.write("\"smartwait\":1,\n")
-                f.write("\"headless\":0,\n")
-                f.write("\"tooManyRequestsCooldown\":45,\n")
+                f.write("\"smartwaitthreads\":1,\n")
+                f.write("\"headless\":1,\n")
+                f.write("\"tooManyRequestsCooldown\":15,\n")
                 f.write("\"totalCrownsEarned\":0,\n")
                 f.write("\"answerDelay\":0.0\n")
                 f.write("}")
@@ -716,6 +721,7 @@ if __name__ == '__main__':
     response = requests.post('https://api.capmonster.cloud/getBalance', json={'clientKey': api_key}).json()
     printTS("Captcha Balance: $"+str(response["balance"]))
 
+    startBot = time.time()
     try:
         threads = []
         for i in range(chunksAmount):
@@ -737,6 +743,7 @@ if __name__ == '__main__':
     printTS("Captcha Balance after Trivia:  $"+str(requests.post('https://api.capmonster.cloud/getBalance', json={'clientKey': api_key}).json()["balance"]))
     printTS("Captchas requested: "+str(captchasRequest))
     printTS("Captchas failed: "+str(captchasFailed))
+    printTS("Total time elapsed: "+str(round(((time.time() - startBot) / 60),2))+"m")
     printTS("Average time per account: "+str(round(totalTimeSeconds/accountsLen, 2))+"s")
     printTS("Average time per account (thread adjusted): "+str(round((totalTimeSeconds/accountsLen)/chunksAmount, 2))+"s")
     printTS("Average time per captcha: "+str(round(captchasRequestSeconds/captchasRequest, 2))+"s")
