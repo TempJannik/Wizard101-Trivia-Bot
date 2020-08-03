@@ -19,7 +19,7 @@ import io
 import requests
 from datetime import datetime
 
-version = "14"
+version = "15"
 totalCrownsEarned = 0
 smartwait = 1
 smartwaitthreads = 1
@@ -381,9 +381,9 @@ class TriviaBot:
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
                     printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.", self.activeAccount)
                     time.sleep(tooManyRequestsCooldown)
-                    self.doQuiz(quizName, quizUrl)
                     if smartwait:
-                        sessionsRunning = sessionsRunning - 1
+                        sessionsRunning = sessionsRunning - 1#
+                    self.doQuiz(quizName, quizUrl)
                     return
                 if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Come Back Tomorrow!')]")) != 0: #Quiz throttle handling
                     printTS("Quiz throttled, skipping quiz.", self.activeAccount)
