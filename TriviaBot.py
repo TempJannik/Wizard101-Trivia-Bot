@@ -3,12 +3,15 @@
 import time
 import urllib.request
 import os
+from os import mkdir
+from os.path import exists
 import sys
 import math
 from urllib.request import urlopen
 from utility_methods.utility_methods import *
 from selenium import webdriver
 from functools import reduce
+import pytesseract as tess
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -18,8 +21,10 @@ import queue
 import io
 import requests
 from datetime import datetime
+from PIL import Image
+from PIL import UnidentifiedImageError
 
-version = "15"
+version = "16"
 totalCrownsEarned = 0
 smartwait = 1
 smartwaitthreads = 1
@@ -486,34 +491,80 @@ class TriviaBot:
         if category == "Zafaria":
             return switcherZafaria.get(question, "Invalid")
 
+    def getSessionToken(self, username, password):
+        global tooManyRequestsCooldown
+        LOGIN_URL = "https://www.wizard101.com/auth/wizard/login.theform"
+        QUARANTINED_URL = "https://www.wizard101.com/auth/wizard/quarantinedlogin.theform"
+        CAPTCHA_URL = "https://www.wizard101.com/Captcha?mode=ua&ts=1591424465802"
+
+        login_data = {
+            "userName": username,
+            "password": password,
+            "t:formdata": "H4sIAAAAAAAAAJXRvUoDQRAH8E0wEkiniPiFFrHda0yhNqYRxUOEEAu7vdvxsslmd93Z804LW9/"
+                            "CJxBrrVPY+Q4+gG0qC/cCEeQkYrMLwzDz4z+PH6SWbZINlrpekIlbZnkQ6kSoPQtcWIhdaiVacqBtQplhcQ+oYwbQ"
+                            "2ZsWjbUFKSL/D41WoBzSI8E5qOaZ1TEgdtJoKBCFVhf3W4v52vN8lVRC0oi1clbLUzYERxbCPrtmgWQqCTrOCpXs5"
+                            "8aRxlTQtTJbJ6tlYopglR/hfa2Zvogh0Hbkiyx2hwIkb3bApWa7O2q8L71+llBX5I5UCkS92FFU/hS0/ysoRTR64j"
+                            "uX44e3KiG5+X2fYYiZthwL4JznTQuz24vuerZClsstsng9f9ffkA589ihQAs3gx1UnSBcKNSizX04G/fNQjSch1lw"
+                            "Pjvl3fLXJ+C8uOCzhZQIAAA==",
+            }
+        with requests.Session() as connection:
+            try:
+                with connection.post(LOGIN_URL, data=login_data) as res:
+                    login_page = res.text
+                    while "quarantined" in login_page or "Too Many Requests" in login_page:
+                        if "Too Many Requests" in login_page:
+                            printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds", self.activeAccount)
+                            time.sleep(tooManyRequestsCooldown)
+                            continue
+
+                        printTS("Solving captcha...", self.activeAccount)
+                        captcha_dir = "captcha"
+                        def write_captcha():
+                            with connection.get("https://www.wizard101.com/Captcha?mode=ua&ts=1591424465802") as captcha_page:
+                                if not exists(captcha_dir):
+                                    mkdir(captcha_dir)
+                                with open(f"{captcha_dir}/CaptchaImage.png", "wb") as captcha_file:
+                                    captcha_file.write(captcha_page.content)
+                                    captcha_file.close()
+                        write_captcha()
+                        while True:
+                            try:
+                                captcha_img = Image.open(f"{captcha_dir}/CaptchaImage.png")
+                                break
+                            except:
+                                time.sleep(10)
+                                write_captcha()
+                        captchaResult = self.resolve(captcha_img)
+                        printTS("Captcha result: "+captchaResult, self.activeAccount)
+                        captcha_data = {
+                        "captcha": captchaResult,
+                        "t:formdata": "H4sIAAAAAAAAAJ2RsUoDQRCGJwdRIZ1iITYiEUTkrjGNNgZBFA5RjjR2c7vjZWVv99zd86KFleA"
+                                      "z2PgEYqVgn8LOd/ABbCysLLwcSSGBQGzmh2Hg+/jn8RPqxQasY+66QSGu0fDgJEeDyglFPNSJUNuGuDDEXG6kNbCr"
+                                      "TeJjhqxLvsOMrDNXLZ9pQ1LEZaaZVqSc9Q8E56Sax0YzsjbK41RYK7Q6vVtZ6C2/znhQC6HBtHJGyyNMycF8eI6XG"
+                                      "EhUSRA5I1Sy08scNEYGHSMLHzYn2jLMHOuiP8zSuDXROEZLfjsul8jcviDJmxG5PFvr9Bsfi28/Y5oXcAO1gdbsEP"
+                                      "EPpfa0SmMt9p/41tn3w7sH0MuKJqxONJCDOc3zKpAbx95HX0svz7d7HnghzDEpyutDXlVStkSS0nLxp6V6xR7lLwg"
+                                      "o+KJxAgAA",
+                        }
+
+                        with connection.post(QUARANTINED_URL, captcha_data) as res:
+                            login_page = res.text
+                    return connection.cookies["JSESSIONID"] 
+            except Exception as e:
+                time.sleep(2)
+                return self.getSessionToken(username, password)
+
     def login(self, username, password):
         global tooManyRequestsCooldown
         self.driver.get(self.login_url)
-        time.sleep(1.5)
         if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Too Many Requests')]")) != 0: #Error 429 handling
             printTS("Too many requests, waiting "+str(tooManyRequestsCooldown)+" seconds for a retry. If this occurs often please increase the delay in the settings or decrease the amount of threads.", self.activeAccount)
             time.sleep(tooManyRequestsCooldown)
             self.login(username, password)
             return
         
-        self.driver.execute_script("document.getElementById('loginUserName').value = '{}'".format(username))
-        self.driver.execute_script("document.getElementById('loginPassword').value = '{}'".format(password))
-        
-        login_btns = self.driver.find_elements_by_class_name("wizardButtonInput")
-        for btn in login_btns:
-                if btn.is_enabled() and btn.is_displayed():
-                    btn.click()
-                    break
-        time.sleep(3)
-        #WebDriverWait(self.driver,15).until(lambda driver: self.driver.find_elements(By.XPATH,"//*[contains(text(), 'captcha')]") or self.driver.find_elements(By.XPATH,"//a[contains(@class, 'logout button orange')]"))
-        iframe = self.driver.find_elements_by_xpath("//iframe")
-        if len(iframe) > 0:
-            self.driver.switch_to.frame(iframe[0])
-
-        if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'Please prove you are not a robot.')]")) > 0:
-            self.solveVisibleCaptcha("bp_login")
-        else:
-            printTS("No Captcha! Login successful", self.activeAccount)
+        self.driver.delete_cookie("JSESSIONID")
+        self.driver.add_cookie({"name": "JSESSIONID", "value": self.getSessionToken(username, password)})
+        self.driver.get(self.login_url)
         self.driver.switch_to.default_content()
 
     def solveInvisibleCaptcha(self, attempts = 0):
@@ -560,57 +611,89 @@ class TriviaBot:
             printTS("Successful captcha took "+str(round(time.time() - startSuccess, 2))+"s", self.activeAccount)
             captchasSuccessSeconds = captchasSuccessSeconds + (time.time() - startSuccess)
             return True
-    
-    def solveVisibleCaptcha(self, submitBtnId, attempts = 0):
-        global captchasRequest
-        global captchasFailed
-        global captchasRequestSeconds
-        global captchasFailedSeconds
-        global captchasSuccessSeconds
 
-        startTotal = time.time()
-        startFailed = time.time()
-        startSuccess = time.time()
-
-        if attempts == 6:
-            return False
-        captchasRequest = captchasRequest + 1
-        site_key = "6Ld7GE0UAAAAALWZbnuhqYTBkobv6Whzl7256dQt" #self.driver.find_element_by_id("recaptcha-token").get_attribute("value")
-        printTS("Starting Captcha Task")
-        response = requests.post('https://api.capmonster.cloud/createTask', json={'clientKey': api_key, 'task': {'type':'NoCaptchaTaskProxyless', "websiteURL":"https://www.wizard101.com","websiteKey":site_key, 'userAgent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36'} }).json()
-        taskId = response["taskId"]
-        printTS("Sent captcha to CapMonster, returned task ID: "+str(taskId), self.activeAccount)
-        finished = False
-        resultKey = ""
-        while not finished:
-            response = requests.post('https://api.capmonster.cloud/getTaskResult', json={'clientKey': api_key, 'taskId': taskId}).json()
-            if response["status"] == "ready":
-                finished = True
-                resultKey = response['solution']["gRecaptchaResponse"]
-            else:
-                #printTS("Captcha not ready, response: "+json.dumps(response))
-                time.sleep(5)
-        
-        #printTS("Finished Captcha Task, key: "+str(resultKey))
-
-        #self.driver.execute_script("document.getElementById('g-recaptcha-response').innerHTML='{}';".format(resultKey))
-        self.driver.execute_script("setCaptchaInputValue('{}');".format(resultKey))
-        login_btns = self.driver.find_elements_by_id(submitBtnId)
-        for btn in login_btns:
-            if btn.is_enabled() and btn.is_displayed():
-                btn.click()
-                break
-        time.sleep(2)
-        captchasRequestSeconds = captchasRequestSeconds + (time.time() - startTotal)
-        if len(self.driver.find_elements_by_xpath("//*[contains(text(), 'There was an error')]")) > 0: #Captcha validation failed
-            captchasFailedSeconds = captchasFailedSeconds + (time.time() - startFailed)
-            printTS("Failed captcha took "+str(round(time.time() - startFailed, 2))+"s", self.activeAccount)
-            captchasFailed = captchasFailed + 1
-            return self.solveVisibleCaptcha(submitBtnId, attempts + 1)
+    def rgb_to_hsv(self, r, g, b):
+        r, g, b = r/255.0, g/255.0, b/255.0
+        mx = max(r, g, b)
+        mn = min(r, g, b)
+        df = mx-mn
+        if mx == mn:
+            h = 0
+        elif mx == r:
+            h = (60 * ((g-b)/df) + 360) % 360
+        elif mx == g:
+            h = (60 * ((b-r)/df) + 120) % 360
+        elif mx == b:
+            h = (60 * ((r-g)/df) + 240) % 360
+        if mx == 0:
+            s = 0
         else:
-            printTS("Successful captcha took "+str(round(time.time() - startSuccess, 2))+"s", self.activeAccount)
-            captchasSuccessSeconds = captchasSuccessSeconds + (time.time() - startSuccess)
+            s = (df/mx)*100
+        v = mx*100
+        return h, s, v
+
+    def getRGB(self, img, i, j):
+        try:
+            return img[i, j]
+        except:
+            return (0, 0, 0)
+
+    def isYellow(self, color):
+        hsv = self.rgb_to_hsv(color[0], color[1], color[2])
+        if hsv[0] > 31 and hsv[0] < 80:
             return True
+        else:
+            return False
+
+    def isBlack(self, color):
+        h, s, v = self.rgb_to_hsv(color[0], color[1], color[2])
+        return v < 22
+
+    def getNeighborPixels(self, img, i, j):
+        return [
+            self.getRGB(img, i, j + 1),
+            self.getRGB(img, i + 1, j),
+            self.getRGB(img, i - 1, j),
+            self.getRGB(img, i, j - 1)
+        ]
+
+    def removeYellowLine(self, origImage, img):
+        ok = True
+        for i in range(origImage.size[0]):
+            for j in range(origImage.size[1]):
+                if self.isYellow(img[i, j]):
+                    ok = False
+
+                    neighborPixels = self.getNeighborPixels(img, i, j)
+                    notYellowPixels = list(filter((lambda x: not self.isYellow(x)), neighborPixels))
+
+                    if len(notYellowPixels) > 1:
+                        avgPixel = reduce((lambda  x, y: (x[0] + y[0], x[1] + y[1], x[2] + y[2])), notYellowPixels)
+                        avgPixel = list(map(lambda x: x // len(notYellowPixels), avgPixel))
+                        if self.isYellow(avgPixel):
+                            img[i, j] = (255, 255, 255)
+                            continue
+                        else:
+                            img[i, j] = (avgPixel[0], avgPixel[1], avgPixel[2])
+
+        if not ok:
+            self.removeYellowLine(origImage, img)
+
+    def remove_light(self, origImage, img):
+        width, height = origImage.size
+        for row in range(width):
+            for col in range(height):
+                curr_pixel = img[row, col]
+                if not self.isBlack(curr_pixel):
+                    img[row, col] = (255,255,255)
+
+    def resolve(self, orig_img):
+        img = orig_img.load()
+        self.removeYellowLine(orig_img, img)
+        self.remove_light(orig_img, img)
+        result = tess.image_to_string(orig_img, lang="eng", config="-c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").lower()
+        return result
+
 
 def updateTotalEarned(amountToAdd):
     lock.acquire() # Aquire lock to prevent other threads opening the file while its being messed with
@@ -623,55 +706,33 @@ def updateTotalEarned(amountToAdd):
     lock.release()
 
 if __name__ == '__main__':
-    print("--------  Wizard101 Trivia Bot v"+version+" --------")
-    print("--------   Made with love by Tox   --------\n\n")
-    print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
-    print("To change your settings navigate to the config.txt file and change the value to your desires")
-    print("To add accounts create a new line in accounts.txt in the username:password format")
-    isVersionOutdated()
-
-    path = os.path.dirname(os.path.realpath(__file__))
     try:
-        with open(path+'/config.txt') as f:
-            data = json.load(f)
+        print("--------  Wizard101 Trivia Bot v"+version+" --------")
+        print("--------   Made with love by Tox   --------\n\n")
+        print("If you encounter any issues and are on the newest version, have any suggestions or wishes for the bot feel free to contact me via Discord: ToxOver#9831")
+        print("To change your settings navigate to the config.txt file and change the value to your desires")
+        print("To add accounts create a new line in accounts.txt in the username:password format")
+        print("UPDATE: Please add back your Tesseract Path in the config!!!")
+        isVersionOutdated()
 
-        api_key = data["api_key"]
-        headless = data["headless"]
-        chunksAmount = data["threads"]
-        smartwait = data["smartwait"]
-        smartwaitthreads = data["smartwaitthreads"]
-        tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
-        crownsEarned = data["totalCrownsEarned"]
-        answerDelay = data["answerDelay"]
-        printTS("Settings loaded:")
-        printTS("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
-        printTS("Threads (parallel sessions): "+str(chunksAmount))
-        printTS("Smart Wait: "+("On" if smartwait == 1 else "Off"))
-        printTS("Smart Wait Threads: "+str(smartwaitthreads))
-        printTS("Delay after Answer: "+str(answerDelay))
-        printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown)+"\n\n")
-        printTS("Total Crowns earned: "+str(crownsEarned)+"\n")
-    except:
-        # First try loading old config, if success: make new config with old config settings + changes -> Config migration for new configs
+        path = os.path.dirname(os.path.realpath(__file__))
         try:
             with open(path+'/config.txt') as f:
                 data = json.load(f)
 
             api_key = data["api_key"]
             headless = data["headless"]
+            chunksAmount = data["threads"]
             smartwait = data["smartwait"]
             smartwaitthreads = data["smartwaitthreads"]
-            chunksAmount = data["threads"]
             tooManyRequestsCooldown = data["tooManyRequestsCooldown"]
             crownsEarned = data["totalCrownsEarned"]
-            data["answerDelay"] = 0.0
             answerDelay = data["answerDelay"]
-
-            if os.path.exists(path+'/config.txt'):
-                os.remove(path+'/config.txt')
-            with open(path+'/config.txt', 'w') as outfile:
-                json.dump(data, outfile, indent=4)
-
+            tess.pytesseract.tesseract_cmd = data["tesseractPath"]
+            if not os.path.isfile(data["tesseractPath"]):
+                print("Could not locate Tesseract at "+data["tesseractPath"]+"! Please read the readme on Github and follow the setup correctly.")
+                input("Press any key to exit")
+                exit()
             printTS("Settings loaded:")
             printTS("Headless (invisible Chrome): "+("On" if headless == 1 else "Off"))
             printTS("Threads (parallel sessions): "+str(chunksAmount))
@@ -681,7 +742,8 @@ if __name__ == '__main__':
             printTS("\"Too Many Requests\" cooldown: "+str(tooManyRequestsCooldown)+"\n\n")
             printTS("Total Crowns earned: "+str(crownsEarned)+"\n")
         except:
-            printTS("Failed to migrate config, creating new config...")
+            # First try loading old config, if success: make new config with old config settings + changes -> Config migration for new configs
+            printTS("Failed to load config, creating new config...")
             if os.path.exists(path+'/config.txt'):
                 os.remove(path+'/config.txt')
             with open(path+'/config.txt', 'a') as f:
@@ -693,60 +755,65 @@ if __name__ == '__main__':
                 f.write("\"headless\":1,\n")
                 f.write("\"tooManyRequestsCooldown\":15,\n")
                 f.write("\"totalCrownsEarned\":0,\n")
-                f.write("\"answerDelay\":0.0\n")
+                f.write("\"answerDelay\":0.0,\n")
+                f.write("\"tesseractPath\":\"C:\\\Program Files\\\Tesseract-OCR\\\\tesseract.exe\"\n")
                 f.write("}")
             printTS("An error occured while processing your settings. Settings have been reverted to default and can be changed in the config.txt file.\nThe bot will now close so you can change the settings to your preferences...")
             time.sleep(5)
             exit()
 
-    if api_key == "PUTKEYHERE":
-        printTS("Please set your API key from https://capmonster.cloud/ in the config.txt file.")
-        time.sleep(5)
-        exit()
-
-    try:
-        with open(path+"/accounts.txt") as f:
-            for line in f:
-                data = line.split(':')
-                accountQueue.put((data[0], data[1].replace("\n", "")))
-        if accountQueue.empty():
-            printTS("No accounts found in accounts.txt! Please add accounts to use this bot.")
+        if api_key == "PUTKEYHERE":
+            printTS("Please set your API key from https://capmonster.cloud/ in the config.txt file.")
             time.sleep(5)
             exit()
-    except:
-        printTS("There was an error parsing your accounts.txt, make sure there are no empty lines and each line is in username:password format.")
-        time.sleep(5)
-        exit()
-    accountsLen = accountQueue.qsize()
-    response = requests.post('https://api.capmonster.cloud/getBalance', json={'clientKey': api_key}).json()
-    printTS("Captcha Balance: $"+str(response["balance"]))
 
-    startBot = time.time()
-    try:
-        threads = []
-        for i in range(chunksAmount):
-            bot = TriviaBot()
-            t = threading.Thread(target=bot.start)
-            t.start()
-            threads.append(t)
-        for x in threads:
-            x.join()
-    except:
-        printTS("An outer exception occured. If this happens you've succesfully fucked something that I never thought could be fucked. Congratulations. The bot will terminate now.")
-        time.sleep(10)
-        exit()
+        try:
+            with open(path+"/accounts.txt") as f:
+                for line in f:
+                    data = line.split(':')
+                    accountQueue.put((data[0], data[1].replace("\n", "")))
+            if accountQueue.empty():
+                printTS("No accounts found in accounts.txt! Please add accounts to use this bot.")
+                time.sleep(5)
+                exit()
+        except:
+            printTS("There was an error parsing your accounts.txt, make sure there are no empty lines and each line is in username:password format.")
+            time.sleep(5)
+            exit()
+        accountsLen = accountQueue.qsize()
+        #response = requests.post('https://api.capmonster.cloud/getBalance', json={'clientKey': api_key}).json()
+        #printTS(str(response))
+        #printTS("Captcha Balance: $"+str(response["balance"]))
 
-    print("\n\n")
-    printTS("Summary")
-    printTS("Earned " + str(totalCrownsEarned)+" crowns on " + str(accountsLen) + " accounts.")
-    printTS("Captcha Balance before Trivia: $"+str(response["balance"]))
-    printTS("Captcha Balance after Trivia:  $"+str(requests.post('https://api.capmonster.cloud/getBalance', json={'clientKey': api_key}).json()["balance"]))
-    printTS("Captchas requested: "+str(captchasRequest))
-    printTS("Captchas failed: "+str(captchasFailed))
-    printTS("Total time elapsed: "+str(round(((time.time() - startBot) / 60),2))+"m")
-    printTS("Average time per account: "+str(round(totalTimeSeconds/accountsLen, 2))+"s")
-    printTS("Average time per account (thread adjusted): "+str(round((totalTimeSeconds/accountsLen)/chunksAmount, 2))+"s")
-    printTS("Average time per captcha: "+str(round(captchasRequestSeconds/captchasRequest, 2))+"s")
-    printTS("Average time per successful captcha: "+str(round(captchasSuccessSeconds/(captchasRequest-captchasFailed),2))+"s")
-    printTS("Average time per failed captcha: "+str(round(captchasFailedSeconds/captchasFailed,2))+"s")
-    input("Press enter to quit..")
+        startBot = time.time()
+        try:
+            threads = []
+            for i in range(chunksAmount):
+                bot = TriviaBot()
+                t = threading.Thread(target=bot.start)
+                t.start()
+                threads.append(t)
+            for x in threads:
+                x.join()
+        except:
+            printTS("An outer exception occured. If this happens you've succesfully fucked something that I never thought could be fucked. Congratulations. The bot will terminate now.")
+            time.sleep(10)
+            exit()
+
+        print("\n\n")
+        printTS("Summary")
+        printTS("Earned " + str(totalCrownsEarned)+" crowns on " + str(accountsLen) + " accounts.")
+        printTS("Captcha Balance before Trivia: $"+str(response["balance"]))
+        printTS("Captcha Balance after Trivia:  $"+str(requests.post('https://api.capmonster.cloud/getBalance', json={'clientKey': api_key}).json()["balance"]))
+        printTS("Captchas requested: "+str(captchasRequest))
+        printTS("Captchas failed: "+str(captchasFailed))
+        printTS("Total time elapsed: "+str(round(((time.time() - startBot) / 60),2))+"m")
+        printTS("Average time per account: "+str(round(totalTimeSeconds/accountsLen, 2))+"s")
+        printTS("Average time per account (thread adjusted): "+str(round((totalTimeSeconds/accountsLen)/chunksAmount, 2))+"s")
+        printTS("Average time per captcha: "+str(round(captchasRequestSeconds/captchasRequest, 2))+"s")
+        printTS("Average time per successful captcha: "+str(round(captchasSuccessSeconds/(captchasRequest-captchasFailed),2))+"s")
+        printTS("Average time per failed captcha: "+str(round(captchasFailedSeconds/captchasFailed,2))+"s")
+        input("Press enter to quit..")
+    except Exception as e:
+        print("Error: "+str(e))
+        input("Wait")

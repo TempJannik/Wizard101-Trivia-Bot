@@ -50,7 +50,8 @@ Restart the bot for the changes to take effect.
 
 ## Installation without Python
 1. Download the release.zip from the [Releases section](https://github.com/TempJannik/Wizard101-Trivia-Bot/releases) and extract the contents into a new folder.
-2. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
+2. Tesseract 5 - **Make sure to install it under C:\Program Files\Tesseract-OCR or change the default path in the config.txt** https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-v5.0.0-alpha.20200328.exe	2. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
+3. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
 If the supplied does not work please do the following:
 - First, find out which version of Chrome you are using. Let's say you have Chrome 72.0.3626.81, you can do this in your Settings -> About Chrome.
 - Take the Chrome version number, remove the last part, and append the result to URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_". For example, with Chrome version 72.0.3626.81, you'd get a URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_72.0.3626".
@@ -71,7 +72,8 @@ If the supplied does not work please do the following:
 3. Python 3.6.4 - **Make sure to Check the "Add to PATH" box in the installation!** Other versions might work as well but this is the version developement was made on. https://www.python.org/downloads/release/python-364/
 4. Open cmd (Type Command Prompt in the windows search) and type **cd "YOUR PROJECT PATH HERE"** for example **cd "C:\Users\Jannik\source\repos\TriviaBot"**
 5. Now type **pip install -r requirements.txt**
-6. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
+6. Tesseract 5 - **Make sure to install it under C:\Program Files\Tesseract-OCR** https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-v5.0.0-alpha.20200328.exe
+7. Chromedriver - I have supplied my chromedriver in this repository, however you may need to get another version depending on what version of Chrome you have.
 If the supplied does not work please do the following:
 - First, find out which version of Chrome you are using. Let's say you have Chrome 72.0.3626.81, you can do this in your Settings -> About Chrome.
 - Take the Chrome version number, remove the last part, and append the result to URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_". For example, with Chrome version 72.0.3626.81, you'd get a URL "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_72.0.3626".
@@ -104,4 +106,5 @@ If the supplied does not work please do the following:
 - [The Daily Crown Quiz Answering Extension](https://chrome.google.com/webstore/detail/daily-crown-quiz-answerin/aihenldiapgpgknjngnabfnjdjjffljp) - Looking at it helped me understand the captchas better and some javascript handling.
 - Zenmaster#6969 - Helping out with testing and formatting Questions/Answers
 - ToxOver#9831 - Me
+- zisop16 - Method for logging in with old captchas
 - Any Contributors on Github and submitters of bugs 
