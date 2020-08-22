@@ -2,7 +2,6 @@
 
 # UPDATE AUGUST 1ST 2020
 I did not plan to update the bot, but seeing as how people are charging others for a bot that has a built in captcha solver I decided to update mine.
-Shout out to the guy who recommended me the specific captcha solving service (I closed your DM and dont remember your name, if you dm me again I can add credits)
 
 # Changes with the captcha
 The usage of this bot is now **no longer free**. To get around the captchas you will have to spend money on a captcha solving service. This bot is configured to work with https://capmonster.cloud/ . To use this bot, create an account on capmonster, load up funds onto your account ($2 is the minimum) and set your API Key in the config.txt file.
@@ -107,4 +106,5 @@ If the supplied does not work please do the following:
 - Zenmaster#6969 - Helping out with testing and formatting Questions/Answers
 - ToxOver#9831 - Me
 - zisop16 - Method for logging in with old captchas
+- Kawhi Not#0002 - Recommending the specific Captcha solving service
 - Any Contributors on Github and submitters of bugs 
