@@ -1,5 +1,7 @@
 # Wizard101-Trivia-Bot
 
+# WARNING: I have had reports of bans occuring, so KI is most likely trying to find accounts using this bot. Use at your own risk
+
 # UPDATE AUGUST 1ST 2020
 I did not plan to update the bot, but seeing as how people are charging others for a bot that has a built in captcha solver I decided to update mine.
 
