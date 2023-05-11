@@ -2,8 +2,8 @@
 
 # WARNING: I have had reports of bans occuring, so KI is most likely trying to find accounts using this bot. Use at your own risk
 
-# UPDATE AUGUST 1ST 2020
-I did not plan to update the bot, but seeing as how people are charging others for a bot that has a built in captcha solver I decided to update mine.
+# UPDATE 2023
+This bot no longer works unless updated by someone.
 
 # Changes with the captcha
 The usage of this bot is now **no longer free**. To get around the captchas you will have to spend money on a captcha solving service. This bot is configured to work with https://capmonster.cloud/ . To use this bot, create an account on capmonster, load up funds onto your account ($2 is the minimum) and set your API Key in the config.txt file.
